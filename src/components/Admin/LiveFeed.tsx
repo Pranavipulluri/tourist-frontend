@@ -1,3 +1,7 @@
+import React, { useEffect, useState } from 'react';
+import { apiService } from '../../services/api';
+import { websocketService } from '../../services/websocket';
+
 export const LiveFeed: React.FC = () => {
   const [feedItems, setFeedItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -6,7 +10,7 @@ export const LiveFeed: React.FC = () => {
     loadLiveFeed();
 
     // Setup real-time updates
-    websocketService.on('new_alert', (alert) => {
+    websocketService.on('new_alert', (alert: any) => {
       addFeedItem({
         id: `alert-${Date.now()}`,
         type: 'ALERT',
@@ -16,7 +20,7 @@ export const LiveFeed: React.FC = () => {
       });
     });
 
-    websocketService.on('location_updated', (data) => {
+    websocketService.on('location_updated', (data: any) => {
       addFeedItem({
         id: `location-${Date.now()}`,
         type: 'LOCATION_UPDATE',
@@ -44,7 +48,7 @@ export const LiveFeed: React.FC = () => {
   };
 
   const addFeedItem = (item: any) => {
-    setFeedItems(prev => [item, ...prev.slice(0, 19)]); // Keep only latest 20 items
+    setFeedItems((prev: any) => [item, ...prev.slice(0, 19)]); // Keep only latest 20 items
   };
 
   const getItemIcon = (type: string) => {
@@ -90,7 +94,7 @@ export const LiveFeed: React.FC = () => {
               <p>No recent activity</p>
             </div>
           ) : (
-            feedItems.map((item) => (
+            feedItems.map((item: any) => (
               <div key={item.id} className="feed-item">
                 <div 
                   className="feed-icon"

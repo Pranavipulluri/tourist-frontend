@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { apiService, DashboardStats } from '../../services/api';
-import { LiveFeed } from './LiveFeed';
-import { AlertsHeatmap } from './AlertsHeatmap';
-import { StatisticsPanel } from './StatisticsPanel';
-import { TouristsList } from './TouristsList';
 import { websocketService } from '../../services/websocket';
 import './Admin.css';
+import { AlertsHeatmap } from './AlertsHeatmap';
+import { AlertsManagement } from './AlertsManagement';
+import { LiveFeed } from './LiveFeed';
+import { StatisticsPanel } from './StatisticsPanel';
+import { TouristsList } from './TouristsList';
 
 export const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);

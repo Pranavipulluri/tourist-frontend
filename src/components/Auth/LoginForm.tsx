@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiService } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { apiService } from '../../services/api';
 import './Auth.css';
 
 interface LoginFormProps {
@@ -26,7 +26,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
 
     try {
       const result = await apiService.login(formData.email, formData.password);
-      authLogin(result.user, result.tokens);
+      authLogin(result, null); // No tokens for now
       
       if (onSuccess) {
         onSuccess();

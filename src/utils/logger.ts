@@ -46,6 +46,70 @@ class Logger {
       // Ignore storage errors
     }
   }
+
+  debug(message: string, data?: any): void {
+    const entry = this.createLogEntry('debug', message, data);
+    this.addLog(entry);
+    
+    if (this.isDevelopment) {
+      console.debug(`[${entry.timestamp}] ${message}`, data);
+    }
+  }
+
+  info(message: string, data?: any): void {
+    const entry = this.createLogEntry('info', message, data);
+    this.addLog(entry);
+    
+    if (this.isDevelopment) {
+      console.info(`[${entry.timestamp}] ${message}`, data);
+    }
+  }
+
+  warn(message: string, data?: any): void {
+    const entry = this.createLogEntry('warn', message, data);
+    this.addLog(entry);
+    
+    console.warn(`[${entry.timestamp}] ${message}`, data);
+  }
+
+  error(message: string, error?: any): void {
+    const entry = this.createLogEntry('error', message, error);
+    this.addLog(entry);
+    
+    console.error(`[${entry.timestamp}] ${message}`, error);
+  }
+
+  getLogs(level?: LogLevel): LogEntry[] {
+    if (level) {
+      return this.logs.filter(log => log.level === level);
+    }
+    return [...this.logs];
+  }
+
+  clearLogs(): void {
+    this.logs = [];
+    localStorage.removeItem('app_logs');
+  }
+
+  loadPersistedLogs(): void {
+    try {
+      const stored = localStorage.getItem('app_logs');
+      if (stored) {
+        const parsedLogs = JSON.parse(stored);
+        if (Array.isArray(parsedLogs)) {
+          this.logs = parsedLogs;
+        }
+      }
+    } catch (error) {
+      // Ignore loading errors
+    }
+  }
+
+  exportLogs(): string {
+    return JSON.stringify(this.logs, null, 2);
+  }
+}
+
 export const logger = new Logger();
 
 // Initialize persisted logs

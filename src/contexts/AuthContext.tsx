@@ -1,12 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Tourist, AuthTokens } from '../services/api';
-import { apiService } from '../services/api';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { apiService, AuthTokens, Tourist } from '../services/api';
 
 interface AuthContextType {
   user: Tourist | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (user: Tourist, tokens: AuthTokens) => void;
+  login: (user: Tourist, tokens?: AuthTokens | null) => void;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<Tourist>) => void;
 }
@@ -46,7 +45,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth();
   }, []);
 
-  const login = (userData: Tourist, tokens: AuthTokens) => {
+  const login = (userData: Tourist, tokens?: AuthTokens | null) => {
     setUser(userData);
   };
 

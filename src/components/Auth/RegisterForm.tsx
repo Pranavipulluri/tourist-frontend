@@ -1,3 +1,8 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { apiService } from '../../services/api';
+
 export const RegisterForm: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }) => {
   const [formData, setFormData] = useState({
     email: '',
@@ -12,11 +17,9 @@ export const RegisterForm: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  const navigate = useNavigate();
-  const { login: authLogin } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const navigate = useNavigate();
+  const { login: authLogin } = useAuth();  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -30,7 +33,7 @@ export const RegisterForm: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }
     try {
       const { confirmPassword, ...registrationData } = formData;
       const result = await apiService.register(registrationData);
-      authLogin(result.user, result.tokens);
+      authLogin(result, null); // No tokens for now
       
       if (onSuccess) {
         onSuccess();

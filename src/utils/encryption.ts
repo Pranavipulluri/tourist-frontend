@@ -58,7 +58,7 @@ class EncryptionService {
       resultArray.set(iv, salt.length);
       resultArray.set(encryptedArray, salt.length + iv.length);
       
-      return btoa(String.fromCharCode(...resultArray));
+      return btoa(String.fromCharCode.apply(null, Array.from(resultArray)));
     } catch (error) {
       throw new Error('Encryption failed');
     }

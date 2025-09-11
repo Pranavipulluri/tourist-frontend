@@ -1,6 +1,6 @@
-import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import axios, { AxiosInstance } from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://tourist-safety-five.vercel.app';
 
 // Types
 export interface AuthTokens {
@@ -18,6 +18,7 @@ export interface Tourist {
   nationality: string;
   passportNumber: string;
   digitalId?: string;
+  role?: 'TOURIST' | 'ADMIN';
   createdAt: string;
   updatedAt: string;
 }
@@ -76,10 +77,17 @@ class ApiService {
 
   constructor() {
     this.api = axios.create({
-      baseURL: `${API_BASE_URL}/api/v1`,
-      timeout: 30000,
+      baseURL: `${API_BASE_URL}/api`,
+      timeout: 10000,
+      maxRedirects: 5,
+      maxContentLength: 2000000,
+      maxBodyLength: 2000000,
+      withCredentials: false,
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Access-Control-Allow-Origin': '*',
       },
     });
 
@@ -156,49 +164,39 @@ class ApiService {
     );
   }
 
-  // Authentication API
+    // Authentication API (using new auth endpoints)
   async register(userData: {
     email: string;
-    password: string;
     firstName: string;
     lastName: string;
-    phoneNumber: string;
-    emergencyContact: string;
-    nationality: string;
-    passportNumber: string;
-  }): Promise<{ user: Tourist; tokens: AuthTokens }> {
+    phoneNumber?: string;
+    emergencyContact?: string;
+    nationality?: string;
+    passportNumber?: string;
+  }): Promise<Tourist> {
     const response = await this.api.post('/auth/register', userData);
-    this.saveTokens(response.data.tokens);
     return response.data;
   }
 
-  async login(email: string, password: string): Promise<{ user: Tourist; tokens: AuthTokens }> {
+  async login(email: string, password: string): Promise<Tourist> {
     const response = await this.api.post('/auth/login', { email, password });
-    this.saveTokens(response.data.tokens);
     return response.data;
   }
 
   async refreshAccessToken(): Promise<boolean> {
-    if (!this.refreshToken) return false;
-
-    try {
-      const response = await this.api.post('/auth/refresh', {
-        refreshToken: this.refreshToken,
-      });
-      this.saveTokens(response.data.tokens);
-      return true;
-    } catch (error) {
-      this.clearTokens();
-      return false;
-    }
+    // TODO: Implement proper token refresh in backend
+    return false;
   }
 
   async logout(): Promise<void> {
-    try {
-      await this.api.post('/auth/logout');
-    } finally {
-      this.clearTokens();
-    }
+    // TODO: Implement proper logout in backend
+    this.clearTokens();
+  }
+
+  // Tourist API
+  async getTourists(): Promise<Tourist[]> {
+    const response = await this.api.get('/tourist');
+    return response.data;
   }
 
   // Tourist Profile API

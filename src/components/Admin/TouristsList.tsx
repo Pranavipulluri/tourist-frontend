@@ -1,3 +1,5 @@
+import React, { useEffect, useState } from 'react';
+
 export const TouristsList: React.FC = () => {
   const [tourists, setTourists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -11,8 +13,12 @@ export const TouristsList: React.FC = () => {
   const loadTourists = async () => {
     try {
       // This would be a new endpoint to get all tourists (admin only)
-      const response = await apiService.api.get('/admin/tourists');
-      setTourists(response.data.tourists);
+      // const response = await apiService.api.get('/admin/tourists');
+      // setTourists(response.data.tourists);
+      
+      // For now, use mock data
+      setTourists([]);
+      console.log('Loading tourists');
     } catch (error) {
       console.error('Failed to load tourists:', error);
     } finally {
@@ -20,7 +26,7 @@ export const TouristsList: React.FC = () => {
     }
   };
 
-  const filteredTourists = tourists.filter(tourist => {
+  const filteredTourists = tourists.filter((tourist: any) => {
     const matchesSearch = tourist.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          tourist.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          tourist.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -72,7 +78,7 @@ export const TouristsList: React.FC = () => {
             <div className="col-actions">Actions</div>
           </div>
           
-          {filteredTourists.map(tourist => (
+          {filteredTourists.map((tourist: any) => (
             <div key={tourist.id} className="table-row">
               <div className="col-name">
                 <div className="tourist-avatar">

@@ -1,3 +1,6 @@
+import React, { useEffect, useState } from 'react';
+import { apiService } from '../../services/api';
+
 export const AlertsHeatmap: React.FC = () => {
   const [heatmapData, setHeatmapData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +62,7 @@ export const AlertsHeatmap: React.FC = () => {
             </div>
 
             <div className="heatmap-stats">
-              {heatmapData.slice(0, 5).map((point, index) => (
+              {heatmapData.slice(0, 5).map((point: any, index: number) => (
                 <div key={index} className="stat-row">
                   <span className="location">
                     📍 {point.latitude.toFixed(3)}, {point.longitude.toFixed(3)}

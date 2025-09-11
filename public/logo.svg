@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" fill="#3b82f6">
+  <rect width="192" height="192" rx="32" fill="#3b82f6"/>
+  <circle cx="96" cy="80" r="24" fill="#ffffff"/>
+  <path fill="#ffffff" d="M96 120c-16 0-32 8-32 16v8h64v-8c0-8-16-16-32-16z"/>
+  <path fill="#ffffff" d="M80 136h32v8H80v-8z"/>
+  <text x="96" y="164" font-family="Arial" font-size="12" fill="#ffffff" text-anchor="middle">SAFE</text>
+</svg>

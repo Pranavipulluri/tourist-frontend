@@ -1,5 +1,8 @@
+import React, { useEffect, useState } from 'react';
+import { Alert, Location as ApiLocation, apiService } from '../../services/api';
+
 interface EmergencyPanelProps {
-  currentLocation: Location | null;
+  currentLocation: ApiLocation | null;
   onAlertCreated: (alert: Alert) => void;
 }
 
@@ -15,7 +18,7 @@ export const EmergencyPanel: React.FC<EmergencyPanelProps> = ({
     let interval: NodeJS.Timeout;
     if (countdown > 0) {
       interval = setInterval(() => {
-        setCountdown(prev => prev - 1);
+        setCountdown((prev: number) => prev - 1);
       }, 1000);
     }
     return () => clearInterval(interval);

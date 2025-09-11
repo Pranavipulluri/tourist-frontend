@@ -1,4 +1,6 @@
-const AlertsManagement: React.FC = () => {
+import React, { useEffect, useState } from 'react';
+
+export const AlertsManagement: React.FC = () => {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'resolved'>('all');
@@ -10,10 +12,14 @@ const AlertsManagement: React.FC = () => {
   const loadAlerts = async () => {
     try {
       // This would be a new endpoint to get all alerts (admin only)
-      const response = await apiService.api.get('/admin/alerts', {
-        params: { status: filter === 'all' ? undefined : filter }
-      });
-      setAlerts(response.data.alerts);
+      // const response = await apiService.api.get('/admin/alerts', {
+      //   params: { status: filter === 'all' ? undefined : filter }
+      // });
+      // setAlerts(response.data.alerts);
+      
+      // For now, use mock data
+      setAlerts([]);
+      console.log('Loading alerts with filter:', filter);
     } catch (error) {
       console.error('Failed to load alerts:', error);
     } finally {
@@ -23,7 +29,8 @@ const AlertsManagement: React.FC = () => {
 
   const handleResolveAlert = async (alertId: string) => {
     try {
-      await apiService.api.put(`/admin/alerts/${alertId}/resolve`);
+      // await apiService.api.put(`/admin/alerts/${alertId}/resolve`);
+      console.log('Resolving alert:', alertId);
       loadAlerts(); // Reload alerts
     } catch (error) {
       console.error('Failed to resolve alert:', error);
@@ -73,7 +80,7 @@ const AlertsManagement: React.FC = () => {
         </div>
       ) : (
         <div className="alerts-grid">
-          {alerts.map(alert => (
+          {alerts.map((alert: any) => (
             <div key={alert.id} className={`alert-card ${alert.status.toLowerCase()}`}>
               <div className="alert-card-header">
                 <span className="alert-type">{alert.type}</span>

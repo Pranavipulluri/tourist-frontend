@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiService, Tourist } from '../../services/api';
 import { Header } from '../Layout/Header';
+import { PreferencesSettings } from './PreferencesSettings';
 import './Profile.css';
+import { SecuritySettings } from './SecuritySettings';
 
 export const ProfilePage: React.FC = () => {
   const { user, updateUser } = useAuth();

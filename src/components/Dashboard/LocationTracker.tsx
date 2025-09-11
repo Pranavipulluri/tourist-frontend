@@ -1,6 +1,9 @@
+import React, { useEffect, useState } from 'react';
+import { Location as ApiLocation, apiService } from '../../services/api';
+
 interface LocationTrackerProps {
-  currentLocation: Location | null;
-  onLocationUpdate: (location: Location) => void;
+  currentLocation: ApiLocation | null;
+  onLocationUpdate: (location: ApiLocation) => void;
 }
 
 export const LocationTracker: React.FC<LocationTrackerProps> = ({

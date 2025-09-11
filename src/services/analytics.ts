@@ -1,4 +1,6 @@
-interface AnalyticsEvent {
+import { logger } from '../utils/logger';
+
+export interface AnalyticsEvent {
   name: string;
   properties?: Record<string, any>;
   timestamp?: string;

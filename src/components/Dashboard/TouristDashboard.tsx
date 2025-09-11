@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { apiService, Alert, Location, IoTDevice } from '../../services/api';
-import { LocationTracker } from './LocationTracker';
-import { EmergencyPanel } from './EmergencyPanel';
+import { Alert, Location as ApiLocation, apiService, IoTDevice } from '../../services/api';
 import { AlertsList } from './AlertsList';
+import './Dashboard.css';
 import { DeviceStatus } from './DeviceStatus';
 import { DigitalID } from './DigitalID';
-import './Dashboard.css';
+import { EmergencyPanel } from './EmergencyPanel';
+import { LocationTracker } from './LocationTracker';
 
 export const TouristDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<ApiLocation | null>(null);
   const [recentAlerts, setRecentAlerts] = useState<Alert[]>([]);
   const [device, setDevice] = useState<IoTDevice | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,7 +51,7 @@ export const TouristDashboard: React.FC = () => {
     }
   };
 
-  const handleLocationUpdate = (location: Location) => {
+  const handleLocationUpdate = (location: ApiLocation) => {
     setCurrentLocation(location);
   };
 

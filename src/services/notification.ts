@@ -1,4 +1,6 @@
-interface NotificationOptions {
+import { logger } from '../utils/logger';
+
+export interface NotificationOptions {
   title: string;
   body: string;
   icon?: string;
@@ -9,7 +11,11 @@ interface NotificationOptions {
   requireInteraction?: boolean;
   silent?: boolean;
   vibrate?: number[];
-  actions?: NotificationAction[];
+  actions?: Array<{
+    action: string;
+    title: string;
+    icon?: string;
+  }>;
 }
 
 class NotificationService {
@@ -30,7 +36,7 @@ class NotificationService {
   private async initializeServiceWorker(): Promise<void> {
     if ('serviceWorker' in navigator) {
       try {
-        this.registration = await navigator.serviceWorker.getRegistration();
+        this.registration = await navigator.serviceWorker.getRegistration() || null;
       } catch (error) {
         logger.error('Failed to get service worker registration', error);
       }
