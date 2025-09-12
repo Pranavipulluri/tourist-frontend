@@ -18,7 +18,12 @@ export const DeviceStatus: React.FC<DeviceStatusProps> = ({ device, onDeviceUpda
   const handlePairDevice = async () => {
     setLoading(true);
     try {
-      const newDevice = await apiService.pairDevice(pairingData);
+      const deviceData = {
+        deviceId: pairingData.deviceId,
+        deviceType: pairingData.deviceType,
+        deviceName: `${pairingData.deviceType} - ${pairingData.deviceId}`
+      };
+      const newDevice = await apiService.pairDevice(deviceData);
       onDeviceUpdate(newDevice);
       setShowPairing(false);
       setPairingData({ deviceId: '', deviceType: 'SMARTWATCH', pairingCode: '' });

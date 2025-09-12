@@ -1,3 +1,5 @@
+import type { Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 import { apiService } from './api';
 
 interface WebSocketMessage {
@@ -11,6 +13,12 @@ interface WebSocketEventHandlers {
   'new_alert': (alert: any) => void;
   'critical_alert': (alert: any) => void;
   'device_status_changed': (device: any) => void;
+  'dashboard-stats': (stats: any) => void;
+  'tourist_location_updated': (data: any) => void;
+  'tourist_status_changed': (data: any) => void;
+  'new_tourist_registered': (data: any) => void;
+  'sos_alert_created': (alert: any) => void;
+  'sos_alert_handled': (alert: any) => void;
   'message': (message: WebSocketMessage) => void;
   'connected': () => void;
   'disconnected': () => void;
@@ -18,7 +26,7 @@ interface WebSocketEventHandlers {
 }
 
 class WebSocketService {
-  private ws: WebSocket | null = null;
+  private socket: Socket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectInterval = 5000;
@@ -30,7 +38,7 @@ class WebSocketService {
   }
 
   private connect() {
-    if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.CONNECTING)) {
+    if (this.isConnecting || (this.socket && this.socket.connected)) {
       return;
     }
 
@@ -41,53 +49,69 @@ class WebSocketService {
     }
 
     this.isConnecting = true;
-    const wsUrl = `ws://localhost:3000/api/v1/ws?token=${token}`;
 
     try {
-      this.ws = new WebSocket(wsUrl);
+      const wsUrl = process.env.REACT_APP_WEBSOCKET_URL || 'ws://localhost:3000';
+      console.log('🔌 WebSocket connecting to:', wsUrl);
+      this.socket = io(wsUrl, {
+        query: { token },
+        transports: ['websocket'],
+        autoConnect: true
+      });
       this.setupEventListeners();
     } catch (error) {
-      console.error('WebSocket connection error:', error);
+      console.error('Socket.IO connection error:', error);
       this.isConnecting = false;
       this.scheduleReconnect();
     }
   }
 
   private setupEventListeners() {
-    if (!this.ws) return;
+    if (!this.socket) return;
 
-    this.ws.onopen = () => {
-      console.log('WebSocket connected');
+    this.socket.on('connect', () => {
+      console.log('Socket.IO connected');
       this.isConnecting = false;
       this.reconnectAttempts = 0;
       this.emit('connected');
 
-      // Subscribe to tourist tracking
-      this.emit('join_tourist_tracking', { touristId: 'current' });
-      this.emit('subscribe_to_alerts');
-    };
+      // Subscribe to dashboard stats
+      this.socket?.emit('get-dashboard-stats');
+    });
 
-    this.ws.onmessage = (event) => {
-      try {
-        const message: WebSocketMessage = JSON.parse(event.data);
-        this.handleMessage(message);
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-      }
-    };
-
-    this.ws.onclose = () => {
-      console.log('WebSocket disconnected');
+    this.socket.on('disconnect', () => {
+      console.log('Socket.IO disconnected');
       this.isConnecting = false;
       this.emit('disconnected');
       this.scheduleReconnect();
-    };
+    });
 
-    this.ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
+    this.socket.on('connect_error', (error: any) => {
+      console.error('Socket.IO connection error:', error);
       this.isConnecting = false;
       this.emit('error', error);
-    };
+      this.scheduleReconnect();
+    });
+
+    // Handle dashboard stats updates
+    this.socket.on('dashboard-stats', (stats: any) => {
+      this.emit('dashboard-stats', stats);
+    });
+
+    // Handle new alerts
+    this.socket.on('new-alert', (alert: any) => {
+      this.emit('new_alert', alert);
+    });
+
+    // Handle location updates
+    this.socket.on('location-update', (location: any) => {
+      this.emit('location_updated', location);
+    });
+
+    // Handle pong response
+    this.socket.on('pong', (data: any) => {
+      console.log('Received pong:', data);
+    });
   }
 
   private handleMessage(message: WebSocketMessage) {
@@ -160,8 +184,8 @@ class WebSocketService {
   }
 
   emit(event: string, data?: any) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ event, data }));
+    if (this.socket && this.socket.connected) {
+      this.socket.emit(event, data);
     }
 
     // Call local event handler if exists
@@ -172,26 +196,22 @@ class WebSocketService {
   }
 
   disconnect() {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
     }
   }
 
   isConnected(): boolean {
-    return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+    return this.socket !== null && this.socket.connected;
   }
 
   getConnectionState(): string {
-    if (!this.ws) return 'disconnected';
+    if (!this.socket) return 'disconnected';
     
-    switch (this.ws.readyState) {
-      case WebSocket.CONNECTING: return 'connecting';
-      case WebSocket.OPEN: return 'connected';
-      case WebSocket.CLOSING: return 'closing';
-      case WebSocket.CLOSED: return 'disconnected';
-      default: return 'unknown';
-    }
+    if (this.socket.connected) return 'connected';
+    if (this.socket.disconnected) return 'disconnected';
+    return 'connecting';
   }
 
   // Request notification permission

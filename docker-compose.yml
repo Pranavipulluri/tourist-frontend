@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.3
+    environment:
+      POSTGRES_DB: tourist_safety
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_NAME=tourist_safety
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

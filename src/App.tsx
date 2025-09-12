@@ -1,15 +1,17 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+import './App.css';
+import { AdminDashboard } from './components/Admin/AdminDashboard';
+import { AlertsHistory } from './components/Alerts/AlertsHistory';
+import APITest from './components/APITest';
 import { LoginForm } from './components/Auth/LoginForm';
 import { RegisterForm } from './components/Auth/RegisterForm';
 import { TouristDashboard } from './components/Dashboard/TouristDashboard';
-import { AdminDashboard } from './components/Admin/AdminDashboard';
-import { ProfilePage } from './components/Profile/ProfilePage';
 import { LocationHistory } from './components/Location/LocationHistory';
-import { AlertsHistory } from './components/Alerts/AlertsHistory';
+import { ProfilePage } from './components/Profile/ProfilePage';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { websocketService } from './services/websocket';
-import './App.css';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -59,7 +61,9 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="app">
-      <Routes>
+      {/* Remove ProfessionalHeader for mobile-first design */}
+      <div className="app-content mobile-content">
+        <Routes>
         {/* Public Routes */}
         <Route 
           path="/login" 
@@ -83,7 +87,21 @@ const AppContent: React.FC = () => {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              {user?.role === 'ADMIN' ? <AdminDashboard /> : <TouristDashboard />}
+              {(() => {
+                console.log('🚦 ROUTING DEBUG: Current user:', user);
+                console.log('🚦 ROUTING DEBUG: User role:', user?.role);
+                console.log('🚦 ROUTING DEBUG: Is user role ADMIN?', user?.role === 'ADMIN');
+                console.log('🚦 ROUTING DEBUG: Is user role TOURIST?', user?.role === 'TOURIST');
+                console.log('🚦 ROUTING DEBUG: Rendering:', user?.role === 'ADMIN' ? 'AdminDashboard' : 'TouristDashboard');
+                
+                if (user?.role === 'ADMIN') {
+                  console.log('🛡️ ADMIN ROUTE: Loading Admin Dashboard for user:', user?.firstName, user?.lastName);
+                  return <AdminDashboard />;
+                } else {
+                  console.log('🎒 TOURIST ROUTE: Loading Tourist Dashboard for user:', user?.firstName, user?.lastName);
+                  return <TouristDashboard />;
+                }
+              })()}
             </ProtectedRoute>
           }
         />
@@ -111,6 +129,10 @@ const AppContent: React.FC = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/api-test"
+          element={<APITest />}
+        />
 
         {/* Default Route */}
         <Route
@@ -130,6 +152,7 @@ const AppContent: React.FC = () => {
           }
         />
       </Routes>
+      </div>
     </div>
   );
 };
@@ -138,9 +161,11 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <Router>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </LanguageProvider>
     </Router>
   );
 };

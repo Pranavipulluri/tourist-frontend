@@ -796,8 +796,8 @@ Object.defineProperty(global, 'crypto', {
 });
 
 // Set up environment variables for tests
-process.env.REACT_APP_API_URL = 'http://localhost:3000';
-process.env.REACT_APP_WS_URL = 'ws://localhost:3000';
+process.env.REACT_APP_API_URL = 'http://localhost:5000';
+process.env.REACT_APP_WS_URL = 'ws://localhost:5000';
 process.env.REACT_APP_ENVIRONMENT = 'test';
 
 // Global test utilities

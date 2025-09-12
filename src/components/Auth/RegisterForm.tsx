@@ -14,6 +14,7 @@ export const RegisterForm: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }
     emergencyContact: '',
     nationality: '',
     passportNumber: '',
+    role: 'TOURIST' as 'TOURIST' | 'ADMIN',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -32,8 +33,11 @@ export const RegisterForm: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }
 
     try {
       const { confirmPassword, ...registrationData } = formData;
+      console.log('📝 REGISTRATION DEBUG: Sending data:', registrationData);
       const result = await apiService.register(registrationData);
-      authLogin(result, null); // No tokens for now
+      console.log('📝 REGISTRATION DEBUG: Registration result:', result);
+      console.log('📝 REGISTRATION DEBUG: User role in result:', result.user.role);
+      authLogin(result.user, { accessToken: result.token, refreshToken: result.token }); // Pass user and tokens correctly
       
       if (onSuccess) {
         onSuccess();
@@ -109,6 +113,28 @@ export const RegisterForm: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }
               required
               disabled={loading}
             />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="role">Account Type</label>
+            <select
+              id="role"
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              required
+              disabled={loading}
+              className="role-select"
+            >
+              <option value="TOURIST">🎒 Tourist Account</option>
+              <option value="ADMIN">👮 Admin Account</option>
+            </select>
+            <small className="form-help">
+              {formData.role === 'TOURIST' 
+                ? '✈️ Access safety features, emergency services, and location tracking'
+                : '🛡️ Monitor tourists, manage alerts, and oversee safety operations'
+              }
+            </small>
           </div>
 
           <div className="form-row">

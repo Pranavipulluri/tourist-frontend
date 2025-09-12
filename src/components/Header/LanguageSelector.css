@@ -1,0 +1,225 @@
+/* Language Selector Styles */
+
+.language-selector {
+  position: relative;
+  display: inline-block;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.language-selector-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 25px;
+  padding: 0.5rem 1rem;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  font-size: 0.9rem;
+  font-weight: 500;
+  min-width: 120px;
+  justify-content: space-between;
+}
+
+.language-selector-button:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.language-selector-button.open {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  border-radius: 25px 25px 8px 8px;
+}
+
+.flag {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.language-name {
+  flex: 1;
+  text-align: left;
+  font-weight: 600;
+}
+
+.dropdown-arrow {
+  font-size: 0.8rem;
+  transition: transform 0.3s ease;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.dropdown-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+/* Dropdown Menu */
+.language-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0 0 15px 15px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(20px);
+  z-index: 1000;
+  overflow: hidden;
+  animation: dropdownSlide 0.3s ease;
+  min-width: 250px;
+}
+
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(45deg, #667eea, #764ba2);
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.globe-icon {
+  font-size: 1.1rem;
+}
+
+.language-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 0.5rem 0;
+}
+
+.language-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  color: #2d3748;
+}
+
+.language-option:hover {
+  background: rgba(102, 126, 234, 0.1);
+  transform: translateX(5px);
+}
+
+.language-option.active {
+  background: linear-gradient(45deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+  border-left: 3px solid #667eea;
+  font-weight: 600;
+}
+
+.language-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0.2rem;
+}
+
+.native-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.english-name {
+  font-size: 0.8rem;
+  color: #718096;
+  font-weight: 400;
+}
+
+.check-mark {
+  color: #48bb78;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.dropdown-footer {
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  text-align: center;
+  color: #718096;
+}
+
+/* RTL Support for Arabic */
+.language-option[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+.language-option[dir="rtl"] .language-info {
+  align-items: flex-end;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .language-dropdown {
+    min-width: 200px;
+    right: 0;
+    left: auto;
+  }
+  
+  .language-option {
+    padding: 1rem;
+  }
+  
+  .native-name {
+    font-size: 0.95rem;
+  }
+  
+  .english-name {
+    font-size: 0.75rem;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .language-dropdown {
+    animation: none;
+  }
+  
+  .dropdown-arrow,
+  .language-option {
+    transition: none;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .language-selector-button {
+    border-width: 2px;
+  }
+  
+  .language-dropdown {
+    border-width: 2px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  }
+  
+  .language-option.active {
+    border-left-width: 4px;
+  }
+}

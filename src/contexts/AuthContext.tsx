@@ -33,10 +33,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (apiService.isAuthenticated()) {
         try {
           const userProfile = await apiService.getProfile();
-          setUser(userProfile);
+          if (userProfile) {
+            setUser(userProfile);
+          } else {
+            // Profile is null, clear invalid token
+            apiService.clearAuthTokens();
+          }
         } catch (error) {
           console.error('Failed to load user profile:', error);
-          // Token might be expired, let the interceptor handle it
+          // Token is invalid, clear it
+          apiService.clearAuthTokens();
         }
       }
       setIsLoading(false);
@@ -46,7 +52,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = (userData: Tourist, tokens?: AuthTokens | null) => {
+    console.log('🔐 AUTH DEBUG: Login called with user:', userData);
+    console.log('🔐 AUTH DEBUG: User role:', userData.role);
+    console.log('🔐 AUTH DEBUG: User ID:', userData.id);
+    console.log('🔐 AUTH DEBUG: User email:', userData.email);
+    console.log('🔐 AUTH DEBUG: Setting user state...');
     setUser(userData);
+    console.log('🔐 AUTH DEBUG: User state set successfully');
   };
 
   const logout = async () => {

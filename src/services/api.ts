@@ -1,6 +1,11 @@
 import axios, { AxiosInstance } from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://tourist-safety-five.vercel.app';
+// API base URL for the backend (Backend runs on port 3000)
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+
+console.log('🔍 DEBUG: API Configuration:');
+console.log('API_BASE_URL:', API_BASE_URL);
+console.log('Google Maps API Key:', 'AIzaSyDtcXKmULv8nTuOPOyEvXHVd5HGDgKQ81A');
 
 // Types
 export interface AuthTokens {
@@ -74,10 +79,11 @@ class ApiService {
   private api: AxiosInstance;
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
+  private googleMapsApiKey = 'AIzaSyDtcXKmULv8nTuOPOyEvXHVd5HGDgKQ81A';
 
   constructor() {
     this.api = axios.create({
-      baseURL: `${API_BASE_URL}/api`,
+      baseURL: API_BASE_URL,
       timeout: 10000,
       maxRedirects: 5,
       maxContentLength: 2000000,
@@ -86,8 +92,6 @@ class ApiService {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Cache-Control': 'no-cache',
-        'Access-Control-Allow-Origin': '*',
       },
     });
 
@@ -105,14 +109,12 @@ class ApiService {
     }
   }
 
-  private saveTokens(tokens: AuthTokens) {
-    this.accessToken = tokens.accessToken;
-    this.refreshToken = tokens.refreshToken;
+  private saveTokens(tokens: { token: string }) {
+    this.accessToken = tokens.token;
     
-    localStorage.setItem('accessToken', tokens.accessToken);
-    localStorage.setItem('refreshToken', tokens.refreshToken);
+    localStorage.setItem('accessToken', tokens.token);
     
-    this.api.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+    this.api.defaults.headers.common['Authorization'] = `Bearer ${tokens.token}`;
   }
 
   private clearTokens() {
@@ -121,6 +123,7 @@ class ApiService {
     
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
     
     delete this.api.defaults.headers.common['Authorization'];
   }
@@ -141,102 +144,136 @@ class ApiService {
     this.api.interceptors.response.use(
       (response) => response,
       async (error) => {
-        const originalRequest = error.config;
-
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
-
-          try {
-            const refreshed = await this.refreshAccessToken();
-            if (refreshed) {
-              originalRequest.headers.Authorization = `Bearer ${this.accessToken}`;
-              return this.api(originalRequest);
-            }
-          } catch (refreshError) {
-            this.clearTokens();
-            window.location.href = '/login';
-            return Promise.reject(refreshError);
-          }
+        console.error('API Error:', error.response?.data || error.message);
+        
+        if (error.response?.status === 401) {
+          this.clearTokens();
+          // Don't redirect automatically, let components handle it
+          console.log('Authentication required');
         }
-
+        
         return Promise.reject(error);
       }
     );
   }
 
-    // Authentication API (using new auth endpoints)
+  // Authentication API (using real backend auth endpoints)
   async register(userData: {
     email: string;
     firstName: string;
     lastName: string;
+    password: string;
     phoneNumber?: string;
     emergencyContact?: string;
     nationality?: string;
     passportNumber?: string;
-  }): Promise<Tourist> {
-    const response = await this.api.post('/auth/register', userData);
-    return response.data;
+    role?: 'TOURIST' | 'ADMIN';
+  }): Promise<{ user: Tourist; token: string }> {
+    console.log('🚀 REGISTER DEBUG:');
+    console.log('API_BASE_URL:', API_BASE_URL);
+    
+    // Use different endpoint based on role
+    const endpoint = userData.role === 'ADMIN' ? '/auth/register/admin' : '/auth/register';
+    console.log('Calling endpoint:', endpoint);
+    console.log('Registration data:', userData);
+    
+    const response = await this.api.post(endpoint, {
+      email: userData.email,
+      password: userData.password,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      phoneNumber: userData.phoneNumber,
+      emergencyContact: userData.emergencyContact,
+      nationality: userData.nationality,
+      passportNumber: userData.passportNumber,
+      role: userData.role || 'TOURIST'
+    });
+    
+    const result = response.data;
+    if (result.token) {
+      this.saveTokens({ token: result.token });
+      localStorage.setItem('user', JSON.stringify(result.user));
+    }
+    
+    return result;
   }
 
-  async login(email: string, password: string): Promise<Tourist> {
+  async login(email: string, password: string): Promise<{ user: Tourist; token: string }> {
+    console.log('🔐 LOGIN DEBUG:');
+    console.log('Calling endpoint: /auth/login');
+    
     const response = await this.api.post('/auth/login', { email, password });
-    return response.data;
-  }
-
-  async refreshAccessToken(): Promise<boolean> {
-    // TODO: Implement proper token refresh in backend
-    return false;
+    const result = response.data;
+    
+    if (result.token) {
+      this.saveTokens({ token: result.token });
+      localStorage.setItem('user', JSON.stringify(result.user));
+    }
+    
+    return result;
   }
 
   async logout(): Promise<void> {
-    // TODO: Implement proper logout in backend
+    try {
+      await this.api.post('/auth/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      this.clearTokens();
+    }
+  }
+
+  // Clear tokens without making API call (for invalid tokens)
+  clearAuthTokens(): void {
     this.clearTokens();
   }
 
-  // Tourist API
-  async getTourists(): Promise<Tourist[]> {
-    const response = await this.api.get('/tourist');
-    return response.data;
-  }
-
-  // Tourist Profile API
-  async getProfile(): Promise<Tourist> {
-    const response = await this.api.get('/tourists/profile');
-    return response.data;
-  }
-
-  async updateProfile(updates: Partial<Tourist>): Promise<Tourist> {
-    const response = await this.api.put('/tourists/profile', updates);
-    return response.data;
-  }
-
-  async createDigitalId(): Promise<{ digitalId: string; qrCode: string }> {
-    const response = await this.api.post('/tourists/digital-id');
-    return response.data;
-  }
-
-  async getDigitalId(): Promise<{ digitalId: string; qrCode: string; issuedAt: string }> {
-    const response = await this.api.get('/tourists/digital-id');
-    return response.data;
-  }
-
-  // Location Tracking API
+  // Location Tracking API (using real backend endpoints)
   async updateLocation(location: {
+    touristId: string;
     latitude: number;
     longitude: number;
     accuracy: number;
-    timestamp?: string;
+    altitude?: number;
+    speed?: number;
+    heading?: number;
   }): Promise<Location> {
-    const response = await this.api.post('/locations/update', {
-      ...location,
-      timestamp: location.timestamp || new Date().toISOString(),
-    });
-    return response.data;
+    console.log('📍 LOCATION UPDATE DEBUG:');
+    console.log('Calling endpoint: /location/update');
+    console.log('Location data:', location);
+    
+    const response = await this.api.post('/location/update', location);
+    console.log('📍 LOCATION UPDATE RESPONSE:', response.data);
+    return response.data; // Backend returns location data directly
   }
 
   async getCurrentLocation(): Promise<Location> {
-    const response = await this.api.get('/locations/current');
-    return response.data;
+    try {
+      console.log('🔍 GET CURRENT LOCATION DEBUG:');
+      
+      // We need the user to be authenticated to get their location
+      if (!this.accessToken) {
+        throw new Error('User not authenticated');
+      }
+      
+      // For now, since we don't have a way to get user ID from token,
+      // let's try to get it from stored user data
+      const userData = localStorage.getItem('user');
+      const user = userData ? JSON.parse(userData) : null;
+      
+      if (!user?.id) {
+        throw new Error('User ID not found');
+      }
+      
+      console.log('Calling endpoint: /location/current/' + user.id);
+      
+      const response = await this.api.get(`/location/current/${user.id}`);
+      console.log('🔍 GET CURRENT LOCATION RESPONSE:', response.data);
+      return response.data.currentLocation || response.data;
+    } catch (error) {
+      console.error('Failed to get current location:', error);
+      throw error;
+    }
   }
 
   async getLocationHistory(limit = 50, offset = 0): Promise<{
@@ -244,82 +281,268 @@ class ApiService {
     total: number;
     hasMore: boolean;
   }> {
-    const response = await this.api.get('/locations/history', {
+    const response = await this.api.get('/location/history', {
       params: { limit, offset },
     });
-    return response.data;
+    
+    return {
+      locations: response.data.locations,
+      total: response.data.pagination?.total || response.data.locations.length,
+      hasMore: response.data.locations.length === limit
+    };
   }
 
-  async batchUpdateLocations(locations: Array<{
-    latitude: number;
-    longitude: number;
-    accuracy: number;
-    timestamp: string;
-  }>): Promise<{ processed: number; errors: any[] }> {
-    const response = await this.api.post('/locations/batch-update', { locations });
-    return response.data;
-  }
-
-  // Emergency Alerts API
+  // Emergency Alerts API (using real backend endpoints)
   async triggerSOS(location?: { latitude: number; longitude: number }): Promise<Alert> {
-    const response = await this.api.post('/alerts/sos', { location });
-    return response.data;
+    const response = await this.api.post('/emergency/alert', {
+      type: 'panic',
+      latitude: location?.latitude,
+      longitude: location?.longitude,
+      message: 'SOS alert triggered by user'
+    });
+    return response.data.alert;
   }
 
   async triggerPanic(message?: string): Promise<Alert> {
-    const response = await this.api.post('/alerts/panic', { message });
-    return response.data;
+    const response = await this.api.post('/emergency/alert', {
+      type: 'panic',
+      message: message || 'Panic alert triggered by user'
+    });
+    return response.data.alert;
   }
 
-  async getMyAlerts(status?: string, limit = 20): Promise<{
+  async getMyAlerts(status = 'ACTIVE', limit = 20): Promise<{
     alerts: Alert[];
     total: number;
   }> {
-    const response = await this.api.get('/alerts/my-alerts', {
-      params: { status, limit },
+    try {
+      console.log('🔔 GET ALERTS DEBUG:');
+      console.log('Calling endpoint: /alerts/my-alerts');
+      
+      const response = await this.api.get('/alerts/my-alerts', {
+        params: { status, limit },
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch alerts:', error);
+      return { alerts: [], total: 0 };
+    }
+  }
+
+  // IoT Device Management API (using real backend endpoints)
+  async getMyDevice(): Promise<IoTDevice | null> {
+    try {
+      const response = await this.api.get('/devices');
+      const devices = response.data.devices;
+      return devices.length > 0 ? devices[0] : null;
+    } catch (error) {
+      console.error('Failed to get device:', error);
+      return null;
+    }
+  }
+
+  async pairDevice(deviceData: {
+    deviceId: string;
+    deviceType: 'SMARTWATCH' | 'PANIC_BUTTON' | 'GPS_TRACKER';
+    deviceName: string;
+  }): Promise<IoTDevice> {
+    const response = await this.api.post('/devices/register', {
+      deviceId: deviceData.deviceId,
+      deviceType: deviceData.deviceType.toLowerCase(),
+      deviceName: deviceData.deviceName
     });
-    return response.data;
+    return response.data.device;
+  }
+
+  // Safety and Geofencing
+  async getSafeZones(latitude: number, longitude: number, radius = 5000): Promise<any[]> {
+    try {
+      const response = await this.api.get('/location/safe-zones', {
+        params: { latitude, longitude, radius }
+      });
+      return response.data.safeZones;
+    } catch (error) {
+      console.error('Failed to get safe zones:', error);
+      return [];
+    }
+  }
+
+  async getSafetyScore(latitude: number, longitude: number): Promise<any> {
+    try {
+      const response = await this.api.get('/location/safety-score', {
+        params: { latitude, longitude }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get safety score:', error);
+      return { safetyScore: 5.0, factors: {}, recommendations: [] };
+    }
+  }
+
+  async getNearbyAlerts(latitude: number, longitude: number, radius = 5000): Promise<any[]> {
+    try {
+      const response = await this.api.get('/alerts/nearby', {
+        params: { latitude, longitude, radius }
+      });
+      return response.data.alerts;
+    } catch (error) {
+      console.error('Failed to get nearby alerts:', error);
+      return [];
+    }
+  }
+
+  // Emergency contacts
+  async getEmergencyContacts(countryCode = 'IN'): Promise<any[]> {
+    try {
+      const response = await this.api.get(`/emergency/contacts/${countryCode}`);
+      return response.data.emergencyContacts;
+    } catch (error) {
+      console.error('Failed to get emergency contacts:', error);
+      return [];
+    }
+  }
+
+  async addPersonalEmergencyContact(contact: {
+    name: string;
+    phone: string;
+    email?: string;
+    relationship: string;
+  }): Promise<any> {
+    const response = await this.api.post('/emergency/personal-contacts', contact);
+    return response.data.contact;
+  }
+
+  async getPersonalEmergencyContacts(): Promise<any[]> {
+    try {
+      const response = await this.api.get('/emergency/personal-contacts');
+      return response.data.contacts;
+    } catch (error) {
+      console.error('Failed to get personal emergency contacts:', error);
+      return [];
+    }
+  }
+
+  // Safety check for automated monitoring
+  async performSafetyCheck(latitude: number, longitude: number): Promise<any> {
+    try {
+      const response = await this.api.post('/emergency/safety-check', {
+        latitude,
+        longitude,
+        source: 'automatic'
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to perform safety check:', error);
+      return { safetyStatus: { isInDangerZone: false, isInactive: false } };
+    }
+  }
+
+  // Google Maps integration
+  getGoogleMapsApiKey(): string {
+    return this.googleMapsApiKey;
+  }
+
+  async reverseGeocode(latitude: number, longitude: number): Promise<string> {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${this.googleMapsApiKey}`
+      );
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        return data.results[0].formatted_address;
+      }
+      
+      return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+    } catch (error) {
+      console.error('Reverse geocoding failed:', error);
+      return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+    }
   }
 
   async acknowledgeAlert(alertId: string): Promise<Alert> {
     const response = await this.api.put(`/alerts/${alertId}/acknowledge`);
-    return response.data;
+    return response.data.alert;
   }
 
-  // IoT Device Management API
-  async pairDevice(deviceData: {
-    deviceId: string;
-    deviceType: 'SMARTWATCH' | 'PANIC_BUTTON' | 'GPS_TRACKER';
-    pairingCode: string;
-  }): Promise<IoTDevice> {
-    const response = await this.api.post('/iot/pair', deviceData);
-    return response.data;
+  async updateProfile(updates: Partial<Tourist>): Promise<Tourist> {
+    const response = await this.api.put('/auth/profile', updates);
+    return response.data.user;
   }
 
-  async getMyDevice(): Promise<IoTDevice | null> {
+  async getProfile(): Promise<Tourist | null> {
     try {
-      const response = await this.api.get('/iot/my-device');
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.status === 404) {
-        return null;
-      }
-      throw error;
+      const response = await this.api.get('/auth/profile');
+      return response.data.user;
+    } catch (error) {
+      console.error('Failed to get profile:', error);
+      return null;
     }
   }
 
-  async unpairDevice(): Promise<void> {
-    await this.api.post('/iot/my-device/unpair');
+  async createDigitalId(): Promise<{ digitalId: string; qrCode: string }> {
+    const response = await this.api.post('/digital-id/create');
+    return response.data;
   }
 
-  async updateDeviceConfig(config: Record<string, any>): Promise<IoTDevice> {
-    const response = await this.api.put('/iot/my-device/config', { config });
+  async getDigitalId(): Promise<{ digitalId: string; qrCode: string; issuedAt: string }> {
+    const response = await this.api.get('/digital-id');
     return response.data;
+  }
+
+  async unpairDevice(): Promise<void> {
+    await this.api.delete('/devices/unpair');
   }
 
   // Dashboard API (Admin)
   async getDashboardOverview(): Promise<DashboardStats> {
-    const response = await this.api.get('/dashboard/overview');
+    const response = await this.api.get('/admin/dashboard/overview');
+    return response.data;
+  }
+
+  // Admin - Tourist Management
+  async getAllTourists(): Promise<Tourist[]> {
+    const response = await this.api.get('/admin/tourists');
+    return response.data.tourists || [];
+  }
+
+  async getTouristById(touristId: string): Promise<Tourist> {
+    const response = await this.api.get(`/admin/tourists/${touristId}`);
+    return response.data;
+  }
+
+  async getTouristLocationHistory(touristId: string): Promise<Location[]> {
+    const response = await this.api.get(`/admin/tourists/${touristId}/locations`);
+    return response.data.locations || [];
+  }
+
+  async updateTouristStatus(touristId: string, status: 'active' | 'inactive'): Promise<void> {
+    await this.api.patch(`/admin/tourists/${touristId}/status`, { status });
+  }
+
+  // Admin - Real-time Alerts Management
+  async getAllAlertsAdmin(): Promise<Alert[]> {
+    const response = await this.api.get('/admin/alerts');
+    return response.data.alerts || [];
+  }
+
+  async getSOSAlertsAdmin(): Promise<Alert[]> {
+    const response = await this.api.get('/admin/alerts/sos');
+    return response.data.alerts || [];
+  }
+
+  async markAlertAsHandled(alertId: string, handledBy: string): Promise<void> {
+    await this.api.patch(`/admin/alerts/${alertId}/handle`, { handledBy });
+  }
+
+  async broadcastAlert(alertData: {
+    type: string;
+    priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    message: string;
+    targetLocation?: { latitude: number; longitude: number; radius: number };
+  }): Promise<Alert> {
+    const response = await this.api.post('/admin/alerts/broadcast', alertData);
     return response.data;
   }
 
@@ -327,7 +550,7 @@ class ApiService {
     stats: DashboardStats;
     trends: Array<{ timestamp: string; [key: string]: any }>;
   }> {
-    const response = await this.api.get('/dashboard/statistics', {
+    const response = await this.api.get('/admin/dashboard/statistics', {
       params: { timeRange },
     });
     return response.data;
@@ -373,6 +596,106 @@ class ApiService {
 
   getAuthToken(): string | null {
     return this.accessToken;
+  }
+
+  // Geofencing/Zone Management API
+  async getZones(): Promise<any[]> {
+    const response = await this.api.get('/admin/zones');
+    return response.data;
+  }
+
+  async createZone(zoneData: any): Promise<any> {
+    const response = await this.api.post('/admin/zones', zoneData);
+    return response.data;
+  }
+
+  async updateZone(zoneId: string, zoneData: any): Promise<any> {
+    const response = await this.api.put(`/admin/zones/${zoneId}`, zoneData);
+    return response.data;
+  }
+
+  async deleteZone(zoneId: string): Promise<void> {
+    await this.api.delete(`/admin/zones/${zoneId}`);
+  }
+
+  async getZoneViolations(touristId: string): Promise<any[]> {
+    const response = await this.api.get(`/geofencing/violations/${touristId}`);
+    return response.data;
+  }
+
+  // Emergency Management API
+  async getEmergencyAlerts(touristId?: string): Promise<any[]> {
+    const url = touristId ? `/emergency/alerts/${touristId}` : '/emergency/alerts';
+    const response = await this.api.get(url);
+    return response.data;
+  }
+
+  async createFIR(firData: any): Promise<any> {
+    const response = await this.api.post('/emergency/fir', firData);
+    return response.data;
+  }
+
+  async getFIRs(touristId?: string): Promise<any[]> {
+    const response = await this.api.get('/admin/fir', {
+      params: touristId ? { touristId } : {}
+    });
+    return response.data;
+  }
+
+  async sendSMSAlert(data: any): Promise<any> {
+    const response = await this.api.post('/admin/sms-alert', data);
+    return response.data;
+  }
+
+  // SMS Logs API
+  async getSMSLogs(): Promise<any[]> {
+    const response = await this.api.get('/admin/sms-logs');
+    return response.data;
+  }
+
+  // Tourism and Sentiment API
+  async getTouristFeedback(): Promise<any[]> {
+    const response = await this.api.get('/tourist/feedback');
+    return response.data;
+  }
+
+  async submitFeedback(feedbackData: any): Promise<any> {
+    const response = await this.api.post('/tourist/feedback', feedbackData);
+    return response.data;
+  }
+
+  // Predictive Analytics API
+  async getRiskPredictions(): Promise<any> {
+    const response = await this.api.get('/admin/analytics/risk-predictions');
+    return response.data;
+  }
+
+  async getPatrolRecommendations(): Promise<any[]> {
+    const response = await this.api.get('/admin/analytics/patrol-recommendations');
+    return response.data;
+  }
+
+  // Sentiment Analysis API
+  async getSentimentAnalysis(): Promise<any> {
+    const response = await this.api.get('/admin/feedback/sentiment');
+    return response.data;
+  }
+
+  // Compliance API
+  async getComplianceLogs(): Promise<any[]> {
+    const response = await this.api.get('/admin/compliance/logs');
+    return response.data;
+  }
+
+  // Resource Management API
+  async getResourceUnits(): Promise<any[]> {
+    const response = await this.api.get('/admin/resources/units');
+    return response.data;
+  }
+
+  async deployResources(deploymentData: any): Promise<any> {
+    const response = await this.api.post('/admin/resources/deploy', deploymentData);
+    return response.data;
   }
 }
 

@@ -2,18 +2,21 @@ import React, { useState } from 'react';
 import { Alert, apiService } from '../../services/api';
 
 interface AlertsListProps {
-  alerts: Alert[];
+  alerts?: Alert[]; // Make optional
   onAlertsUpdate: (alerts: Alert[]) => void;
 }
 
-export const AlertsList: React.FC<AlertsListProps> = ({ alerts, onAlertsUpdate }) => {
+export const AlertsList: React.FC<AlertsListProps> = ({ alerts = [], onAlertsUpdate }) => {
   const [loading, setLoading] = useState<string | null>(null);
+
+  // Ensure alerts is always an array
+  const safeAlerts = Array.isArray(alerts) ? alerts : [];
 
   const handleAcknowledge = async (alertId: string) => {
     setLoading(alertId);
     try {
       const updatedAlert = await apiService.acknowledgeAlert(alertId);
-      onAlertsUpdate(alerts.map(alert => 
+      onAlertsUpdate(safeAlerts.map(alert => 
         alert.id === alertId ? updatedAlert : alert
       ));
     } catch (error) {
@@ -47,17 +50,17 @@ export const AlertsList: React.FC<AlertsListProps> = ({ alerts, onAlertsUpdate }
     <div className="alerts-list">
       <div className="alerts-header">
         <h3>Recent Alerts</h3>
-        <span className="alerts-count">{alerts.length}</span>
+        <span className="alerts-count">{safeAlerts.length}</span>
       </div>
 
-      {alerts.length === 0 ? (
+      {safeAlerts.length === 0 ? (
         <div className="no-alerts">
           <span className="no-alerts-icon">✅</span>
           <span className="no-alerts-text">No recent alerts</span>
         </div>
       ) : (
         <div className="alerts-container">
-          {alerts.map((alert) => (
+          {safeAlerts.map((alert) => (
             <div key={alert.id} className={`alert-item ${alert.status.toLowerCase()}`}>
               <div className="alert-header">
                 <span className="alert-icon">{getAlertIcon(alert.type)}</span>

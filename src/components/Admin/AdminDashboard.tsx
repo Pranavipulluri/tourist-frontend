@@ -4,15 +4,24 @@ import { websocketService } from '../../services/websocket';
 import './Admin.css';
 import { AlertsHeatmap } from './AlertsHeatmap';
 import { AlertsManagement } from './AlertsManagement';
+import { ComplianceLogs } from './ComplianceLogs';
+import { FIRReview } from './FIRReview';
 import { LiveFeed } from './LiveFeed';
+import { PredictiveAnalytics } from './PredictiveAnalytics';
+import { ResourceManagement } from './ResourceManagement';
+import { SentimentAnalyzer } from './SentimentAnalyzer';
+import { SMSLogs } from './SMSLogs';
+import { SOSManagement } from './SOSManagement';
 import { StatisticsPanel } from './StatisticsPanel';
+import { TouristMonitoring } from './TouristMonitoring';
 import { TouristsList } from './TouristsList';
+import { ZoneManagement } from './ZoneManagement';
 
 export const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'tourists' | 'alerts' | 'analytics'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'tourists' | 'alerts' | 'sos' | 'analytics' | 'zones' | 'fir' | 'sms' | 'monitoring' | 'resources' | 'compliance' | 'predictions' | 'sentiment'>('overview');
 
   useEffect(() => {
     loadDashboardData();
@@ -97,10 +106,64 @@ export const AdminDashboard: React.FC = () => {
           👥 Tourists
         </button>
         <button
+          className={`tab-button ${activeTab === 'monitoring' ? 'active' : ''}`}
+          onClick={() => setActiveTab('monitoring')}
+        >
+          🎯 Live Monitoring
+        </button>
+        <button
           className={`tab-button ${activeTab === 'alerts' ? 'active' : ''}`}
           onClick={() => setActiveTab('alerts')}
         >
           🚨 Alerts
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'sos' ? 'active' : ''}`}
+          onClick={() => setActiveTab('sos')}
+        >
+          🆘 SOS Emergency
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'zones' ? 'active' : ''}`}
+          onClick={() => setActiveTab('zones')}
+        >
+          🗺️ Zone Management
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'fir' ? 'active' : ''}`}
+          onClick={() => setActiveTab('fir')}
+        >
+          📋 FIR Review
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'sms' ? 'active' : ''}`}
+          onClick={() => setActiveTab('sms')}
+        >
+          📱 SMS Logs
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'resources' ? 'active' : ''}`}
+          onClick={() => setActiveTab('resources')}
+        >
+          🚔 Resources
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'predictions' ? 'active' : ''}`}
+          onClick={() => setActiveTab('predictions')}
+        >
+          🔮 AI Predictions
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'sentiment' ? 'active' : ''}`}
+          onClick={() => setActiveTab('sentiment')}
+        >
+          😊 Sentiment
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'compliance' ? 'active' : ''}`}
+          onClick={() => setActiveTab('compliance')}
+        >
+          📝 Compliance
         </button>
         <button
           className={`tab-button ${activeTab === 'analytics' ? 'active' : ''}`}
@@ -178,9 +241,63 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
 
+        {activeTab === 'monitoring' && (
+          <div className="monitoring-tab">
+            <TouristMonitoring />
+          </div>
+        )}
+
         {activeTab === 'alerts' && (
           <div className="alerts-tab">
             <AlertsManagement />
+          </div>
+        )}
+
+        {activeTab === 'sos' && (
+          <div className="sos-tab">
+            <SOSManagement />
+          </div>
+        )}
+
+        {activeTab === 'zones' && (
+          <div className="zones-tab">
+            <ZoneManagement />
+          </div>
+        )}
+
+        {activeTab === 'fir' && (
+          <div className="fir-tab">
+            <FIRReview />
+          </div>
+        )}
+
+        {activeTab === 'sms' && (
+          <div className="sms-tab">
+            <SMSLogs />
+          </div>
+        )}
+
+        {activeTab === 'resources' && (
+          <div className="resources-tab">
+            <ResourceManagement />
+          </div>
+        )}
+
+        {activeTab === 'predictions' && (
+          <div className="predictions-tab">
+            <PredictiveAnalytics />
+          </div>
+        )}
+
+        {activeTab === 'sentiment' && (
+          <div className="sentiment-tab">
+            <SentimentAnalyzer />
+          </div>
+        )}
+
+        {activeTab === 'compliance' && (
+          <div className="compliance-tab">
+            <ComplianceLogs />
           </div>
         )}
 

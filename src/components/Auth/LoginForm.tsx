@@ -26,7 +26,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
 
     try {
       const result = await apiService.login(formData.email, formData.password);
-      authLogin(result, null); // No tokens for now
+      authLogin(result.user, { accessToken: result.token, refreshToken: result.token }); // Pass user and tokens correctly
       
       if (onSuccess) {
         onSuccess();

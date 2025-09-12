@@ -478,3 +478,48 @@
 .action-button.track {
   background: #28a745;
 }
+
+/* Role Selection Styles */
+.role-select {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 2px solid #ddd;
+  font-weight: 500;
+  font-size: 16px;
+  padding: 12px 16px;
+}
+
+.role-select:focus {
+  border-color: #3498db;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.form-help {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.4;
+  background: #f8f9fa;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 3px solid #3498db;
+}
+
+.form-group:has(.role-select) {
+  background: rgba(52, 152, 219, 0.05);
+  padding: 15px;
+  border-radius: 10px;
+  border: 1px solid rgba(52, 152, 219, 0.2);
+}
+
+/* Role-specific styling */
+.role-select option[value="TOURIST"] {
+  background: #e8f5e8;
+  color: #2e7d2e;
+}
+
+.role-select option[value="ADMIN"] {
+  background: #fff3cd;
+  color: #856404;
+}

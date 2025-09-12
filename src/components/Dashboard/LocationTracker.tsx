@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { Location as ApiLocation, apiService } from '../../services/api';
 
 interface LocationTrackerProps {
@@ -10,18 +11,23 @@ export const LocationTracker: React.FC<LocationTrackerProps> = ({
   currentLocation,
   onLocationUpdate,
 }) => {
+  const { user, isAuthenticated } = useAuth();
   const [isTracking, setIsTracking] = useState(false);
   const [error, setError] = useState('');
   const [watchId, setWatchId] = useState<number | null>(null);
 
   useEffect(() => {
-    // Start tracking on component mount
-    startTracking();
+    // Only start tracking if user is authenticated
+    if (isAuthenticated && user) {
+      startTracking();
+    } else {
+      stopTracking();
+    }
     
     return () => {
       stopTracking();
     };
-  }, []);
+  }, [isAuthenticated, user]);
 
   const startTracking = () => {
     if (!navigator.geolocation) {
@@ -29,8 +35,23 @@ export const LocationTracker: React.FC<LocationTrackerProps> = ({
       return;
     }
 
+    if (!isAuthenticated || !user) {
+      setError('Please log in to enable location tracking');
+      return;
+    }
+
     setError('');
     setIsTracking(true);
+
+    // Request permission first
+    navigator.permissions?.query({name: 'geolocation'}).then((result) => {
+      console.log('Geolocation permission:', result.state);
+      if (result.state === 'denied') {
+        setError('Location permission denied. Please enable location access.');
+        setIsTracking(false);
+        return;
+      }
+    });
 
     const options = {
       enableHighAccuracy: true,
@@ -41,7 +62,9 @@ export const LocationTracker: React.FC<LocationTrackerProps> = ({
     const id = navigator.geolocation.watchPosition(
       async (position) => {
         try {
+          console.log('📍 New position:', position.coords);
           const location = await apiService.updateLocation({
+            touristId: user.id,
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
             accuracy: position.coords.accuracy,
@@ -52,6 +75,7 @@ export const LocationTracker: React.FC<LocationTrackerProps> = ({
         }
       },
       (err) => {
+        console.error('Geolocation error:', err);
         setError(`Location error: ${err.message}`);
         setIsTracking(false);
       },
@@ -109,15 +133,15 @@ export const LocationTracker: React.FC<LocationTrackerProps> = ({
             <div className="location-details">
               <div className="detail-row">
                 <span className="detail-label">Latitude:</span>
-                <span className="detail-value">{currentLocation.latitude.toFixed(6)}</span>
+                <span className="detail-value">{currentLocation.latitude?.toFixed(6) || 'N/A'}</span>
               </div>
               <div className="detail-row">
                 <span className="detail-label">Longitude:</span>
-                <span className="detail-value">{currentLocation.longitude.toFixed(6)}</span>
+                <span className="detail-value">{currentLocation.longitude?.toFixed(6) || 'N/A'}</span>
               </div>
               <div className="detail-row">
                 <span className="detail-label">Accuracy:</span>
-                <span className="detail-value">{Math.round(currentLocation.accuracy)}m</span>
+                <span className="detail-value">{currentLocation.accuracy ? Math.round(currentLocation.accuracy) : 'N/A'}m</span>
               </div>
               <div className="detail-row">
                 <span className="detail-label">Last Update:</span>
