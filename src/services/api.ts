@@ -41,18 +41,21 @@ export interface Location {
 export interface Alert {
   id: string;
   touristId: string;
-  type: 'SOS' | 'PANIC' | 'GEOFENCE' | 'SAFETY_CHECK';
+  type: 'SOS' | 'PANIC' | 'EMERGENCY' | 'GEOFENCE' | 'SAFETY_CHECK';
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   status: 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED';
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   message: string;
-  location: {
-    latitude: number;
-    longitude: number;
-    address?: string;
-  };
-  createdAt: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  acknowledgedBy?: string;
+  resolvedBy?: string;
   acknowledgedAt?: string;
   resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  metadata?: Record<string, any>;
+  tourist?: Tourist;
 }
 
 export interface IoTDevice {
@@ -98,6 +101,27 @@ class ApiService {
     // Load tokens from localStorage
     this.loadTokens();
     this.setupInterceptors();
+  }
+  
+  // HTTP methods
+  async get(url: string, config?: any) {
+    return this.api.get(url, config);
+  }
+  
+  async post(url: string, data?: any, config?: any) {
+    return this.api.post(url, data, config);
+  }
+  
+  async put(url: string, data?: any, config?: any) {
+    return this.api.put(url, data, config);
+  }
+  
+  async patch(url: string, data?: any, config?: any) {
+    return this.api.patch(url, data, config);
+  }
+  
+  async delete(url: string, config?: any) {
+    return this.api.delete(url, config);
   }
 
   private loadTokens() {
@@ -228,6 +252,17 @@ class ApiService {
     this.clearTokens();
   }
 
+  getCurrentUser(): Tourist | null {
+    // Return the current user from localStorage or state
+    try {
+      const userStr = localStorage.getItem('currentUser');
+      return userStr ? JSON.parse(userStr) : null;
+    } catch (error) {
+      console.error('Failed to get current user:', error);
+      return null;
+    }
+  }
+
   // Location Tracking API (using real backend endpoints)
   async updateLocation(location: {
     touristId: string;
@@ -294,39 +329,120 @@ class ApiService {
 
   // Emergency Alerts API (using real backend endpoints)
   async triggerSOS(location?: { latitude: number; longitude: number }): Promise<Alert> {
-    const response = await this.api.post('/emergency/alert', {
-      type: 'panic',
-      latitude: location?.latitude,
-      longitude: location?.longitude,
-      message: 'SOS alert triggered by user'
+    const user = this.getCurrentUser();
+    if (!user?.id) {
+      throw new Error('User not authenticated');
+    }
+
+    const response = await this.api.post('/alerts/sos', {
+      touristId: user.id,
+      latitude: location?.latitude || 0,
+      longitude: location?.longitude || 0,
+      message: 'Emergency SOS Alert - Immediate assistance required!'
     });
-    return response.data.alert;
+    return response.data;
   }
 
-  async triggerPanic(message?: string): Promise<Alert> {
-    const response = await this.api.post('/emergency/alert', {
-      type: 'panic',
-      message: message || 'Panic alert triggered by user'
+  async triggerPanic(message?: string, location?: { latitude: number; longitude: number }): Promise<Alert> {
+    const user = this.getCurrentUser();
+    if (!user?.id) {
+      throw new Error('User not authenticated');
+    }
+
+    const response = await this.api.post('/alerts/panic', {
+      touristId: user.id,
+      latitude: location?.latitude || 0,
+      longitude: location?.longitude || 0,
+      message: message || 'Panic Button Pressed - Help needed!'
     });
-    return response.data.alert;
+    return response.data;
   }
 
-  async getMyAlerts(status = 'ACTIVE', limit = 20): Promise<{
+  async getMyAlerts(status?: string, limit = 20): Promise<{
     alerts: Alert[];
     total: number;
   }> {
     try {
+      const user = this.getCurrentUser();
+      if (!user?.id) {
+        return { alerts: [], total: 0 };
+      }
+
       console.log('🔔 GET ALERTS DEBUG:');
-      console.log('Calling endpoint: /alerts/my-alerts');
+      console.log('Calling endpoint: /alerts');
       
-      const response = await this.api.get('/alerts/my-alerts', {
-        params: { status, limit },
-      });
+      const params: any = { touristId: user.id, limit };
+      if (status) params.status = status;
       
-      return response.data;
+      const response = await this.api.get('/alerts', { params });
+      
+      return {
+        alerts: response.data,
+        total: response.data.length
+      };
     } catch (error) {
       console.error('Failed to fetch alerts:', error);
       return { alerts: [], total: 0 };
+    }
+  }
+
+  // Admin endpoints for alerts
+  async getSOSAlertsAdmin(): Promise<Alert[]> {
+    try {
+      const response = await this.api.get('/alerts', {
+        params: { type: 'SOS' }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch SOS alerts:', error);
+      return [];
+    }
+  }
+
+  async acknowledgeAlert(alertId: string, acknowledgedBy: string): Promise<Alert> {
+    const response = await this.api.patch(`/alerts/${alertId}/acknowledge`, {
+      acknowledgedBy
+    });
+    return response.data;
+  }
+
+  async resolveAlert(alertId: string, resolvedBy: string): Promise<Alert> {
+    const response = await this.api.patch(`/alerts/${alertId}/resolve`, {
+      resolvedBy
+    });
+    return response.data;
+  }
+
+  async getHeatmapData(filters?: any): Promise<any> {
+    try {
+      const response = await this.api.get('/alerts/heatmap', {
+        params: filters
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch heatmap data:', error);
+      return {
+        heatmapData: [],
+        totalAlerts: 0,
+        hotspots: [],
+        alertsByType: {},
+        alertsBySeverity: {}
+      };
+    }
+  }
+
+  async getAlertStatistics(): Promise<any> {
+    try {
+      const response = await this.api.get('/alerts/statistics');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch alert statistics:', error);
+      return {
+        total: 0,
+        active: 0,
+        resolved: 0,
+        averageResponseTime: null
+      };
     }
   }
 
@@ -461,10 +577,7 @@ class ApiService {
     }
   }
 
-  async acknowledgeAlert(alertId: string): Promise<Alert> {
-    const response = await this.api.put(`/alerts/${alertId}/acknowledge`);
-    return response.data.alert;
-  }
+  // Remove duplicate - already defined above
 
   async updateProfile(updates: Partial<Tourist>): Promise<Tourist> {
     const response = await this.api.put('/auth/profile', updates);
@@ -527,10 +640,7 @@ class ApiService {
     return response.data.alerts || [];
   }
 
-  async getSOSAlertsAdmin(): Promise<Alert[]> {
-    const response = await this.api.get('/admin/alerts/sos');
-    return response.data.alerts || [];
-  }
+  // Remove duplicate - already defined above
 
   async markAlertAsHandled(alertId: string, handledBy: string): Promise<void> {
     await this.api.patch(`/admin/alerts/${alertId}/handle`, { handledBy });

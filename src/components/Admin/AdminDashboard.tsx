@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { apiService, DashboardStats } from '../../services/api';
 import { websocketService } from '../../services/websocket';
 import './Admin.css';
@@ -18,21 +20,21 @@ import { TouristsList } from './TouristsList';
 import { ZoneManagement } from './ZoneManagement';
 
 export const AdminDashboard: React.FC = () => {
+  const navigate = useNavigate();
+  const { logout, user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'tourists' | 'alerts' | 'sos' | 'analytics' | 'zones' | 'fir' | 'sms' | 'monitoring' | 'resources' | 'compliance' | 'predictions' | 'sentiment'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'tourists' | 'alerts' | 'sos' | 'analytics' | 'zones' | 'monitoring'>('overview');
 
   useEffect(() => {
     loadDashboardData();
     
     // Setup WebSocket listeners for real-time updates
     websocketService.on('new_alert', handleNewAlert);
-    websocketService.on('location_updated', handleLocationUpdate);
 
     return () => {
       websocketService.off('new_alert');
-      websocketService.off('location_updated');
     };
   }, []);
 
@@ -60,8 +62,15 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleLocationUpdate = (data: any) => {
-    console.log('Location updated:', data);
+  const handleLogout = async () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      try {
+        await logout();
+        navigate('/login');
+      } catch (error) {
+        console.error('Logout failed:', error);
+      }
+    }
   };
 
   if (loading) {
@@ -77,232 +86,227 @@ export const AdminDashboard: React.FC = () => {
 
   return (
     <div className="admin-dashboard">
+      {/* Modern Header Section */}
       <div className="admin-header">
-        <h1>🛡️ Tourist Safety Control Center</h1>
-        <p>Monitor and manage tourist safety across all locations</p>
+        <div className="admin-title">Tourist Safety Control Center</div>
+        <div className="admin-subtitle">Monitor and manage tourist safety across all locations</div>
         
-        {error && (
-          <div className="error-banner">
-            <span className="error-icon">⚠️</span>
-            {error}
-            <button onClick={loadDashboardData} className="retry-button">
-              Retry
-            </button>
+        <div className="header-actions">
+          <div className="admin-info">
+            <span className="admin-welcome">Welcome, {user?.firstName || 'Admin'}</span>
+            <span className="admin-role">System Administrator</span>
           </div>
-        )}
+          <button className="action-btn danger" onClick={handleLogout}>
+            <span>🚪</span>
+            Logout
+          </button>
+        </div>
       </div>
 
+      {/* Slim Alert Banner */}
+      {error && (
+        <div className="alert-banner">
+          <span className="alert-icon">⚠️</span>
+          <span className="alert-text">{error}</span>
+          <button onClick={loadDashboardData} className="action-btn">
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
       <div className="admin-tabs">
         <button
           className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveTab('overview')}
         >
-          📊 Overview
+          <span>📊</span> Overview
         </button>
         <button
           className={`tab-button ${activeTab === 'tourists' ? 'active' : ''}`}
           onClick={() => setActiveTab('tourists')}
         >
-          👥 Tourists
+          <span>👥</span> Tourists
         </button>
         <button
           className={`tab-button ${activeTab === 'monitoring' ? 'active' : ''}`}
           onClick={() => setActiveTab('monitoring')}
         >
-          🎯 Live Monitoring
+          <span>🎯</span> Live Monitoring
         </button>
         <button
           className={`tab-button ${activeTab === 'alerts' ? 'active' : ''}`}
           onClick={() => setActiveTab('alerts')}
         >
-          🚨 Alerts
+          <span>🚨</span> Alerts
         </button>
         <button
           className={`tab-button ${activeTab === 'sos' ? 'active' : ''}`}
           onClick={() => setActiveTab('sos')}
         >
-          🆘 SOS Emergency
+          <span>🆘</span> Emergency
         </button>
         <button
           className={`tab-button ${activeTab === 'zones' ? 'active' : ''}`}
           onClick={() => setActiveTab('zones')}
         >
-          🗺️ Zone Management
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'fir' ? 'active' : ''}`}
-          onClick={() => setActiveTab('fir')}
-        >
-          📋 FIR Review
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'sms' ? 'active' : ''}`}
-          onClick={() => setActiveTab('sms')}
-        >
-          📱 SMS Logs
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'resources' ? 'active' : ''}`}
-          onClick={() => setActiveTab('resources')}
-        >
-          🚔 Resources
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'predictions' ? 'active' : ''}`}
-          onClick={() => setActiveTab('predictions')}
-        >
-          🔮 AI Predictions
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'sentiment' ? 'active' : ''}`}
-          onClick={() => setActiveTab('sentiment')}
-        >
-          😊 Sentiment
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'compliance' ? 'active' : ''}`}
-          onClick={() => setActiveTab('compliance')}
-        >
-          📝 Compliance
+          <span>🗺️</span> Zones
         </button>
         <button
           className={`tab-button ${activeTab === 'analytics' ? 'active' : ''}`}
           onClick={() => setActiveTab('analytics')}
         >
-          📈 Analytics
+          <span>�</span> Analytics
         </button>
       </div>
 
+      {/* Main Content Area */}
       <div className="admin-content">
         {activeTab === 'overview' && (
-          <div className="overview-tab">
+          <div className="overview-section">
+            {/* Dashboard Statistics Cards */}
             {stats && (
-              <div className="stats-overview">
+              <div className="admin-stats">
                 <div className="stat-card">
-                  <div className="stat-icon">👥</div>
-                  <div className="stat-content">
-                    <h3>{stats.totalTourists}</h3>
-                    <p>Total Tourists</p>
-                    <span className="stat-subtitle">
-                      {stats.activeTourists} currently active
-                    </span>
+                  <div className="stat-card-content">
+                    <div className="stat-info">
+                      <div className="stat-number">{stats.totalTourists}</div>
+                      <div className="stat-label">Total Tourists</div>
+                      <div className="stat-trend trend-up">
+                        ↗ {stats.activeTourists} active
+                      </div>
+                    </div>
+                    <div className="stat-icon">👥</div>
                   </div>
                 </div>
 
                 <div className="stat-card">
-                  <div className="stat-icon">🚨</div>
-                  <div className="stat-content">
-                    <h3>{stats.activeAlerts}</h3>
-                    <p>Active Alerts</p>
-                    <span className="stat-subtitle">
-                      {stats.totalAlerts} total alerts
-                    </span>
+                  <div className="stat-card-content">
+                    <div className="stat-info">
+                      <div className="stat-number">{stats.activeAlerts}</div>
+                      <div className="stat-label">Active Alerts</div>
+                      <div className="stat-trend">
+                        {stats.totalAlerts} total
+                      </div>
+                    </div>
+                    <div className="stat-icon">🚨</div>
                   </div>
                 </div>
 
                 <div className="stat-card">
-                  <div className="stat-icon">✅</div>
-                  <div className="stat-content">
-                    <h3>{stats.resolvedAlerts}</h3>
-                    <p>Resolved Alerts</p>
-                    <span className="stat-subtitle">
-                      {Math.round((stats.resolvedAlerts / Math.max(stats.totalAlerts, 1)) * 100)}% resolution rate
-                    </span>
-                  </div>
-                </div>
-
-                <div className="stat-card">
-                  <div className="stat-icon">⏱️</div>
-                  <div className="stat-content">
-                    <h3>{Math.round(stats.averageResponseTime)}m</h3>
-                    <p>Avg Response Time</p>
-                    <span className="stat-subtitle">
-                      Last 24 hours
-                    </span>
+                  <div className="stat-card-content">
+                    <div className="stat-info">
+                      <div className="stat-number">{stats.resolvedAlerts}</div>
+                      <div className="stat-label">Resolved</div>
+                      <div className="stat-trend trend-up">
+                        ↗ {Math.round((stats.resolvedAlerts / Math.max(stats.totalAlerts, 1)) * 100)}% rate
+                      </div>
+                    </div>
+                    <div className="stat-icon">✅</div>
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="overview-grid">
-              <div className="overview-card">
-                <LiveFeed />
+            {/* Content Sections */}
+            <div className="admin-sections">
+              <div className="admin-section">
+                <h3 className="section-title">
+                  <span className="section-icon">�</span>
+                  Live Activity Feed
+                </h3>
+                <div className="section-content">
+                  <LiveFeed />
+                </div>
               </div>
-              <div className="overview-card">
-                <AlertsHeatmap />
+
+              <div className="admin-section">
+                <h3 className="section-title">
+                  <span className="section-icon">🗺️</span>
+                  Alerts Heatmap
+                </h3>
+                <div className="section-content">
+                  <AlertsHeatmap />
+                </div>
+              </div>
+
+              <div className="admin-section">
+                <h3 className="section-title">
+                  <span className="section-icon">⚡</span>
+                  Quick Actions
+                </h3>
+                <div className="section-content">
+                  <p>Quickly access common administrative tasks and emergency functions.</p>
+                  <div className="quick-actions">
+                    <button className="action-btn" onClick={() => setActiveTab('tourists')}>
+                      <span>👥</span> View All Tourists
+                    </button>
+                    <button className="action-btn" onClick={() => setActiveTab('alerts')}>
+                      <span>🚨</span> Manage Alerts
+                    </button>
+                    <button className="action-btn" onClick={() => setActiveTab('sos')}>
+                      <span>🆘</span> Emergency Console
+                    </button>
+                    <button className="action-btn secondary" onClick={loadDashboardData}>
+                      <span>🔄</span> Refresh Data
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="admin-section">
+                <h3 className="section-title">
+                  <span className="section-icon">📊</span>
+                  System Health
+                </h3>
+                <div className="section-content">
+                  <p>Monitor system performance and status indicators.</p>
+                  <div className="quick-actions">
+                    <button className="action-btn secondary" onClick={() => setActiveTab('analytics')}>
+                      <span>📈</span> View Analytics
+                    </button>
+                    <button className="action-btn secondary" onClick={() => setActiveTab('zones')}>
+                      <span>🗺️</span> Zone Status
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {activeTab === 'tourists' && (
-          <div className="tourists-tab">
+          <div className="admin-section">
             <TouristsList />
           </div>
         )}
 
         {activeTab === 'monitoring' && (
-          <div className="monitoring-tab">
+          <div className="admin-section">
             <TouristMonitoring />
           </div>
         )}
 
         {activeTab === 'alerts' && (
-          <div className="alerts-tab">
+          <div className="admin-section">
             <AlertsManagement />
           </div>
         )}
 
         {activeTab === 'sos' && (
-          <div className="sos-tab">
+          <div className="admin-section">
             <SOSManagement />
           </div>
         )}
 
         {activeTab === 'zones' && (
-          <div className="zones-tab">
+          <div className="admin-section">
             <ZoneManagement />
           </div>
         )}
 
-        {activeTab === 'fir' && (
-          <div className="fir-tab">
-            <FIRReview />
-          </div>
-        )}
-
-        {activeTab === 'sms' && (
-          <div className="sms-tab">
-            <SMSLogs />
-          </div>
-        )}
-
-        {activeTab === 'resources' && (
-          <div className="resources-tab">
-            <ResourceManagement />
-          </div>
-        )}
-
-        {activeTab === 'predictions' && (
-          <div className="predictions-tab">
-            <PredictiveAnalytics />
-          </div>
-        )}
-
-        {activeTab === 'sentiment' && (
-          <div className="sentiment-tab">
-            <SentimentAnalyzer />
-          </div>
-        )}
-
-        {activeTab === 'compliance' && (
-          <div className="compliance-tab">
-            <ComplianceLogs />
-          </div>
-        )}
-
         {activeTab === 'analytics' && (
-          <div className="analytics-tab">
+          <div className="admin-section">
             <StatisticsPanel />
           </div>
         )}

@@ -98,14 +98,32 @@ class WebSocketService {
       this.emit('dashboard-stats', stats);
     });
 
-    // Handle new alerts
-    this.socket.on('new-alert', (alert: any) => {
+    // Handle new alerts (from backend emergency service)
+    this.socket.on('alert', (alert: any) => {
+      console.log('🚨 New alert received:', alert);
       this.emit('new_alert', alert);
+      this.emit('sos_alert_created', alert);
+      
+      // Show critical notification for SOS alerts
+      if (alert.type === 'SOS' || alert.emergency_type === 'SOS') {
+        this.showNotification(
+          '🚨 SOS Alert!', 
+          `Tourist ${alert.touristName || alert.touristId} needs immediate help!`,
+          'error'
+        );
+      }
     });
 
-    // Handle location updates
-    this.socket.on('location-update', (location: any) => {
-      this.emit('location_updated', location);
+    // Handle location updates (from backend location service)
+    this.socket.on('location-update', (locationData: any) => {
+      console.log('📍 Location update received:', locationData);
+      this.emit('location_updated', locationData);
+      this.emit('tourist_location_updated', locationData);
+    });
+
+    // Legacy event handlers for backward compatibility
+    this.socket.on('new-alert', (alert: any) => {
+      this.emit('new_alert', alert);
     });
 
     // Handle pong response

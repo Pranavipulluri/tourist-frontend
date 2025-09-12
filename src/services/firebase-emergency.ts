@@ -134,10 +134,9 @@ export class FirebaseEmergencyService {
           latitude: data.latitude,
           longitude: data.longitude,
           status: data.status,
-          timestamp: data.createdAt.toDate().toISOString(),
           createdAt: data.createdAt.toDate().toISOString(),
           updatedAt: data.updatedAt.toDate().toISOString(),
-          source: data.source || 'unknown',
+          metadata: { source: data.source || 'unknown' },
         });
       });
 
@@ -443,10 +442,9 @@ export class FirebaseEmergencyService {
           latitude: data.latitude,
           longitude: data.longitude,
           status: data.status,
-          timestamp: data.createdAt.toDate().toISOString(),
           createdAt: data.createdAt.toDate().toISOString(),
           updatedAt: data.updatedAt.toDate().toISOString(),
-          source: data.source || 'unknown',
+          metadata: { source: data.source || 'unknown' },
         });
       });
       callback(alerts);

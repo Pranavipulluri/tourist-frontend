@@ -15,8 +15,8 @@ export const AlertsList: React.FC<AlertsListProps> = ({ alerts = [], onAlertsUpd
   const handleAcknowledge = async (alertId: string) => {
     setLoading(alertId);
     try {
-      const updatedAlert = await apiService.acknowledgeAlert(alertId);
-      onAlertsUpdate(safeAlerts.map(alert => 
+      const updatedAlert = await apiService.acknowledgeAlert(alertId, 'Tourist User');
+      onAlertsUpdate(safeAlerts.map(alert =>
         alert.id === alertId ? updatedAlert : alert
       ));
     } catch (error) {
@@ -24,9 +24,7 @@ export const AlertsList: React.FC<AlertsListProps> = ({ alerts = [], onAlertsUpd
     } finally {
       setLoading(null);
     }
-  };
-
-  const getAlertIcon = (type: string) => {
+  };  const getAlertIcon = (type: string) => {
     switch (type) {
       case 'SOS': return '🆘';
       case 'PANIC': return '🚨';
@@ -65,11 +63,11 @@ export const AlertsList: React.FC<AlertsListProps> = ({ alerts = [], onAlertsUpd
               <div className="alert-header">
                 <span className="alert-icon">{getAlertIcon(alert.type)}</span>
                 <span className="alert-type">{alert.type}</span>
-                <span 
+                <span
                   className="alert-priority"
-                  style={{ color: getPriorityColor(alert.priority) }}
+                  style={{ color: getPriorityColor(alert.severity) }}
                 >
-                  {alert.priority}
+                  {alert.severity}
                 </span>
               </div>
               
@@ -79,9 +77,9 @@ export const AlertsList: React.FC<AlertsListProps> = ({ alerts = [], onAlertsUpd
                   <span className="alert-time">
                     {new Date(alert.createdAt).toLocaleString()}
                   </span>
-                  {alert.location && (
+                  {(alert.latitude && alert.longitude) && (
                     <span className="alert-location">
-                      📍 {alert.location.latitude.toFixed(4)}, {alert.location.longitude.toFixed(4)}
+                      📍 {alert.latitude.toFixed(4)}, {alert.longitude.toFixed(4)}
                     </span>
                   )}
                 </div>

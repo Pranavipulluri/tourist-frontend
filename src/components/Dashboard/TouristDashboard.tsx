@@ -264,72 +264,108 @@ export const TouristDashboard: React.FC = () => {
         });
       });
 
-      const emergencyData = {
-        type: 'SOS_PANIC',
-        severity: 'CRITICAL',
-        location: {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy
-        },
-        timestamp: new Date().toISOString(),
-        userId: user?.id || 'anonymous',
-        message: '🆘 EMERGENCY: SOS button pressed! Immediate assistance required!',
-        additionalInfo: {
-          batteryLevel: '85%',
-          signalStrength: 'Strong',
-          deviceInfo: navigator.userAgent
-        }
+      const location = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
       };
 
-      console.log('🚨 SOS EMERGENCY ALERT:', emergencyData);
+      console.log('🚨 SOS EMERGENCY ALERT - Location:', location);
       
-      // Send to backend using the correct API method
+      // Send SOS alert to real database
       try {
-        // Send SOS alert
-        const sosAlert = await apiService.triggerSOS({
-          latitude: emergencyData.location.latitude,
-          longitude: emergencyData.location.longitude
-        });
-        
-        // Also notify admin panel via SMS/alert system
-        try {
-          await apiService.sendSMSAlert({
-            message: `🚨 CRITICAL SOS ALERT: Tourist ${user?.firstName} ${user?.lastName} (${user?.email}) has triggered an emergency SOS at coordinates ${emergencyData.location.latitude}, ${emergencyData.location.longitude}. Immediate assistance required!`,
-            priority: 'CRITICAL',
-            location: emergencyData.location,
-            touristInfo: {
-              id: user?.id,
-              name: `${user?.firstName} ${user?.lastName}`,
-              email: user?.email,
-              phone: user?.phoneNumber
-            }
-          });
-          console.log('✅ Admin panel notified successfully');
-        } catch (adminError) {
-          console.error('❌ Failed to notify admin panel:', adminError);
-        }
+        const sosAlert = await apiService.triggerSOS(location);
+        console.log('✅ SOS Alert sent to database:', sosAlert);
         
         // Show success notification
-        alert('🆘 Emergency alert sent! Help is on the way. Stay calm and stay on the line.');
+        alert('🆘 Emergency SOS alert sent! Help is on the way. Emergency services have been notified with your location.');
         
         // Vibrate device if supported
         if (navigator.vibrate) {
           navigator.vibrate([200, 100, 200, 100, 200]);
         }
         
-      } catch (error) {
-        console.error('Error sending emergency alert:', error);
-        // Still show local help options even if backend fails
-        alert('⚠️ Network error but local emergency services have been notified. Call 100 for immediate help.');
+        // Update local state
+        const address = await apiService.reverseGeocode(location.latitude, location.longitude).catch(() => undefined);
+        const locationObj: ApiLocation = {
+          id: Date.now().toString(),
+          touristId: user?.id || '',
+          latitude: location.latitude,
+          longitude: location.longitude,
+          accuracy: 10,
+          timestamp: new Date().toISOString(),
+          address
+        };
+        setCurrentLocation(locationObj);
+        
+        // Auto-turn off SOS after 5 minutes
+        setTimeout(() => {
+          setSosActive(false);
+        }, 300000);
+        
+      } catch (sosError) {
+        console.error('❌ Failed to send SOS alert:', sosError);
+        alert('⚠️ Failed to send SOS alert to emergency services. Please try calling emergency services directly.');
+        setSosActive(false);
       }
+      
+    } catch (locationError) {
+      console.error('❌ Failed to get location:', locationError);
+      
+      // Fallback: Send SOS without location
+      try {
+        const sosAlert = await apiService.triggerSOS();
+        console.log('✅ SOS Alert sent without location:', sosAlert);
+        alert('🆘 Emergency SOS alert sent! Location could not be determined, but emergency services have been notified.');
+        
+        // Auto-turn off SOS after 5 minutes
+        setTimeout(() => {
+          setSosActive(false);
+        }, 300000);
+        
+      } catch (sosError) {
+        console.error('❌ Failed to send emergency alert. Please call emergency services directly.');
+        setSosActive(false);
+      }
+    }
+  };
 
+  // Handle Panic button
+  const handlePanicPress = async () => {
+    try {
+      // Get current location
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        });
+      });
+
+      const location = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
+      };
+
+      const panicAlert = await apiService.triggerPanic('Panic button pressed - Need assistance', location);
+      console.log('✅ Panic Alert sent:', panicAlert);
+      
+      alert('⚠️ Panic alert sent! Authorities have been notified.');
+      
+      // Vibrate if supported
+      if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
+      
     } catch (error) {
-      console.error('Error getting location for SOS:', error);
-      alert('🆘 SOS activated! If you need immediate help, call 100 (Police) or 108 (Medical)');
-    } finally {
-      // Keep SOS active for 30 seconds
-      setTimeout(() => setSosActive(false), 30000);
+      console.error('❌ Failed to send panic alert:', error);
+      
+      // Fallback without location
+      try {
+        const panicAlert = await apiService.triggerPanic('Panic button pressed - Need assistance');
+        alert('⚠️ Panic alert sent! Location could not be determined.');
+      } catch (fallbackError) {
+        alert('⚠️ Failed to send panic alert. Please try again.');
+      }
     }
   };
 
@@ -659,10 +695,10 @@ export const TouristDashboard: React.FC = () => {
                 {recentAlerts.length > 0 ? (
                   <div className="alerts-list">
                     {recentAlerts.slice(0, 3).map(alert => (
-                      <div key={alert.id} className={`alert-item ${alert.priority?.toLowerCase()}`}>
+                      <div key={alert.id} className={`alert-item ${alert.severity?.toLowerCase()}`}>
                         <div className="alert-icon">
-                          {alert.priority === 'CRITICAL' ? '🔴' : 
-                           alert.priority === 'HIGH' ? '🟡' : '🟢'}
+                          {alert.severity === 'CRITICAL' ? '🔴' : 
+                           alert.severity === 'HIGH' ? '🟡' : '🟢'}
                         </div>
                         <div className="alert-content">
                           <div className="alert-title">{alert.type}</div>

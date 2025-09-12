@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { apiService, Alert } from '../../services/api';
+import React, { useEffect, useState } from 'react';
+import { Alert, apiService } from '../../services/api';
 import { Header } from '../Layout/Header';
 import './Alerts.css';
 
@@ -26,16 +26,14 @@ export const AlertsHistory: React.FC = () => {
 
   const handleAcknowledge = async (alertId: string) => {
     try {
-      const updatedAlert = await apiService.acknowledgeAlert(alertId);
-      setAlerts(prev => prev.map(alert => 
+      const updatedAlert = await apiService.acknowledgeAlert(alertId, 'Admin User');
+      setAlerts(prev => prev.map(alert =>
         alert.id === alertId ? updatedAlert : alert
       ));
     } catch (error) {
       console.error('Failed to acknowledge alert:', error);
     }
-  };
-
-  const getAlertIcon = (type: string) => {
+  };  const getAlertIcon = (type: string) => {
     switch (type) {
       case 'SOS': return '🆘';
       case 'PANIC': return '🚨';
@@ -131,11 +129,11 @@ export const AlertsHistory: React.FC = () => {
                       <span className="alert-icon">{getAlertIcon(alert.type)}</span>
                       <div className="alert-type-text">
                         <h4>{alert.type}</h4>
-                        <span 
+                        <span
                           className="alert-priority"
-                          style={{ color: getPriorityColor(alert.priority) }}
+                          style={{ color: getPriorityColor(alert.severity) }}
                         >
-                          {alert.priority} Priority
+                          {alert.severity} Priority
                         </span>
                       </div>
                     </div>
@@ -177,20 +175,20 @@ export const AlertsHistory: React.FC = () => {
                       )}
                     </div>
 
-                    {alert.location && (
+                    {(alert.latitude && alert.longitude) && (
                       <div className="alert-location">
                         <span className="location-icon">📍</span>
                         <span className="location-text">
-                          {alert.location.latitude.toFixed(4)}, {alert.location.longitude.toFixed(4)}
+                          {alert.latitude.toFixed(4)}, {alert.longitude.toFixed(4)}
                         </span>
-                        {alert.location.address && (
+                        {alert.address && (
                           <span className="location-address">
-                            {alert.location.address}
+                            {alert.address}
                           </span>
                         )}
-                        <button 
+                        <button
                           className="view-map-button"
-                          onClick={() => window.open(`https://maps.google.com/maps?q=${alert.location.latitude},${alert.location.longitude}`, '_blank')}
+                          onClick={() => window.open(`https://maps.google.com/maps?q=${alert.latitude},${alert.longitude}`, '_blank')}
                         >
                           View on Map
                         </button>

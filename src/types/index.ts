@@ -42,16 +42,21 @@ export interface Location {
 export interface Alert {
   id: string;
   touristId: string;
-  type: string;
+  type: 'SOS' | 'PANIC' | 'EMERGENCY' | 'GEOFENCE' | 'SAFETY_CHECK';
   severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  status: 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED';
   message: string;
   latitude: number;
   longitude: number;
-  status: 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED';
-  timestamp: string;
+  address?: string;
+  acknowledgedBy?: string;
+  resolvedBy?: string;
+  acknowledgedAt?: string;
+  resolvedAt?: string;
   createdAt: string;
   updatedAt: string;
-  source: string;
+  metadata?: Record<string, any>;
+  tourist?: Tourist;
 }
 
 export interface IoTDevice {

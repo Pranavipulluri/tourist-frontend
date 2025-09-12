@@ -1,9 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, apiService, Tourist } from '../../services/api';
+import { apiService, Tourist } from '../../services/api';
 import { websocketService } from '../../services/websocket';
 
-interface SOSAlert extends Omit<Alert, 'location'> {
-  tourist?: Tourist;
+interface SOSAlert {
+  id: string;
+  touristId: string;
+  type: 'SOS' | 'PANIC' | 'EMERGENCY' | 'GEOFENCE' | 'SAFETY_CHECK';
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  status: 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED';
+  message: string;
+  acknowledgedBy?: string;
+  resolvedBy?: string;
+  acknowledgedAt?: string;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  metadata?: Record<string, any>;
+  tourist?: Tourist | null;
   location: {
     latitude: number;
     longitude: number;
@@ -40,16 +53,29 @@ export const SOSManagement: React.FC = () => {
       setLoading(true);
       setError('');
       
+      console.log('🚨 Loading SOS alerts from real database...');
       const alerts = await apiService.getSOSAlertsAdmin();
+      console.log('✅ SOS alerts received:', alerts);
       
       // Enhance alerts with tourist and location data
       const enhancedAlerts = await Promise.all(
         alerts.map(async (alert) => {
           try {
-            const tourist = await apiService.getTouristById(alert.touristId);
+            let tourist = null;
+            try {
+              tourist = await apiService.getTouristById(alert.touristId);
+            } catch (touristError) {
+              console.warn(`Could not load tourist data for ${alert.touristId}:`, touristError);
+            }
+            
             const sosAlert: SOSAlert = {
               ...alert,
               tourist,
+              location: {
+                latitude: alert.latitude || 0,
+                longitude: alert.longitude || 0,
+                address: alert.address
+              },
               responseTime: alert.resolvedAt 
                 ? new Date(alert.resolvedAt).getTime() - new Date(alert.createdAt).getTime()
                 : undefined,
@@ -57,13 +83,21 @@ export const SOSManagement: React.FC = () => {
             };
             return sosAlert;
           } catch (error) {
-            console.error(`Error loading tourist data for SOS alert ${alert.id}:`, error);
-            return alert;
+            console.error(`Error enhancing SOS alert ${alert.id}:`, error);
+            return {
+              ...alert,
+              location: {
+                latitude: alert.latitude || 0,
+                longitude: alert.longitude || 0,
+                address: alert.address
+              }
+            };
           }
         })
       );
       
       setSOSAlerts(enhancedAlerts);
+      console.log('✅ Enhanced SOS alerts loaded:', enhancedAlerts.length);
     } catch (error: any) {
       console.error('Failed to load SOS alerts:', error);
       setError('Failed to load SOS alerts');
@@ -107,7 +141,8 @@ export const SOSManagement: React.FC = () => {
 
   const handleMarkAsHandled = async (alert: SOSAlert) => {
     try {
-      await apiService.markAlertAsHandled(alert.id, 'Admin User');
+      console.log('🔄 Marking alert as resolved:', alert.id);
+      await apiService.resolveAlert(alert.id, 'Admin User');
       
       setSOSAlerts(prev => prev.map(a => 
         a.id === alert.id
@@ -120,8 +155,11 @@ export const SOSManagement: React.FC = () => {
             }
           : a
       ));
+      
+      console.log('✅ Alert marked as resolved');
     } catch (error) {
-      console.error('Failed to mark alert as handled:', error);
+      console.error('❌ Failed to mark alert as handled:', error);
+      window.alert('Failed to mark alert as resolved. Please try again.');
     }
   };
 
@@ -236,8 +274,8 @@ export const SOSManagement: React.FC = () => {
         {filteredAlerts.map((alert) => (
           <div key={alert.id} className={`sos-alert-card ${alert.status?.toLowerCase()}`}>
             <div className="alert-header">
-              <div className="alert-priority" style={{ backgroundColor: getAlertPriorityColor(alert.priority) }}>
-                {alert.priority}
+              <div className="alert-priority" style={{ backgroundColor: getAlertPriorityColor(alert.severity) }}>
+                {alert.severity}
               </div>
               <div className="alert-time">
                 {new Date(alert.createdAt).toLocaleTimeString()}
@@ -352,7 +390,7 @@ export const SOSManagement: React.FC = () => {
                   <h4>Alert Information</h4>
                   <p><strong>Alert ID:</strong> {selectedAlert.id}</p>
                   <p><strong>Type:</strong> {selectedAlert.type}</p>
-                  <p><strong>Priority:</strong> {selectedAlert.priority}</p>
+                  <p><strong>Priority:</strong> {selectedAlert.severity}</p>
                   <p><strong>Status:</strong> {selectedAlert.status}</p>
                   <p><strong>Created At:</strong> {new Date(selectedAlert.createdAt).toLocaleString()}</p>
                   <p><strong>Message:</strong> {selectedAlert.message}</p>
