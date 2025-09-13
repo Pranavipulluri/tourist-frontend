@@ -1,11 +1,11 @@
 import axios, { AxiosInstance } from 'axios';
 
-// API base URL for the backend (Backend runs on port 3000)
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+// API base URL for the backend (Backend runs on port 3001)
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 console.log('🔍 DEBUG: API Configuration:');
 console.log('API_BASE_URL:', API_BASE_URL);
-console.log('Google Maps API Key:', 'AIzaSyDtcXKmULv8nTuOPOyEvXHVd5HGDgKQ81A');
+console.log('Google Maps API Key:', process.env.REACT_APP_GOOGLE_MAPS_API_KEY);
 
 // Types
 export interface AuthTokens {
@@ -23,6 +23,7 @@ export interface Tourist {
   nationality: string;
   passportNumber: string;
   digitalId?: string;
+  digitalBlockchainId?: string;
   role?: 'TOURIST' | 'ADMIN';
   createdAt: string;
   updatedAt: string;
@@ -805,6 +806,124 @@ class ApiService {
 
   async deployResources(deploymentData: any): Promise<any> {
     const response = await this.api.post('/admin/resources/deploy', deploymentData);
+    return response.data;
+  }
+
+  // Digital Tourist ID API
+  async issueDigitalId(digitalIdData: any): Promise<any> {
+    const response = await this.api.post('/digital-tourist-id/issue', digitalIdData);
+    return response.data;
+  }
+
+  async accessDigitalId(accessData: { blockchainId: string; accessReason: string; emergencyAccess?: boolean }): Promise<any> {
+    const response = await this.api.post('/digital-tourist-id/access', accessData);
+    return response.data;
+  }
+
+  async updateDigitalIdConsent(blockchainId: string, consentSettings: any): Promise<any> {
+    const response = await this.api.put(`/digital-tourist-id/consent/${blockchainId}`, { consentSettings });
+    return response.data;
+  }
+
+  async reportLostDigitalId(lostIdData: { blockchainId: string; reason: string; kioskLocation?: string }): Promise<any> {
+    const response = await this.api.post('/digital-tourist-id/report-lost', lostIdData);
+    return response.data;
+  }
+
+  async triggerEmergencyAccess(emergencyData: { blockchainId: string; reason: string; emergencyResponderAddress: string }): Promise<any> {
+    const response = await this.api.post('/digital-tourist-id/emergency-access', emergencyData);
+    return response.data;
+  }
+
+  async getDigitalIdDetails(blockchainId: string): Promise<any> {
+    const response = await this.api.get(`/digital-tourist-id/${blockchainId}`);
+    return response.data;
+  }
+
+  async getDigitalIdAccessLogs(blockchainId: string, limit: number = 50, offset: number = 0): Promise<any> {
+    const response = await this.api.get(`/digital-tourist-id/${blockchainId}/access-logs?limit=${limit}&offset=${offset}`);
+    return response.data;
+  }
+
+  async runAutoExpireDigitalIds(): Promise<any> {
+    const response = await this.api.post('/digital-tourist-id/auto-expire');
+    return response.data;
+  }
+
+  async getDigitalIdAnalytics(): Promise<any> {
+    const response = await this.api.get('/digital-tourist-id/analytics/summary');
+    return response.data;
+  }
+
+  async getBlockchainStatus(): Promise<any> {
+    const response = await this.api.get('/digital-tourist-id/blockchain/status');
+    return response.data;
+  }
+
+  // Geofencing Management API
+  async getGeofences(): Promise<any> {
+    const response = await this.api.get('/geofencing');
+    return response.data;
+  }
+
+  async createGeofence(geofenceData: {
+    name: string;
+    description?: string;
+    type: string;
+    coordinates: { latitude: number; longitude: number }[];
+    centerLatitude: number;
+    centerLongitude: number;
+    radius: number;
+    alertMessage?: string;
+    isActive?: boolean;
+  }): Promise<any> {
+    const response = await this.api.post('/geofencing', geofenceData);
+    return response.data;
+  }
+
+  async updateGeofence(geofenceId: string, updates: {
+    name?: string;
+    description?: string;
+    type?: string;
+    coordinates?: { latitude: number; longitude: number }[];
+    centerLatitude?: number;
+    centerLongitude?: number;
+    radius?: number;
+    alertMessage?: string;
+    isActive?: boolean;
+  }): Promise<any> {
+    const response = await this.api.put(`/geofencing/${geofenceId}`, updates);
+    return response.data;
+  }
+
+  async deleteGeofence(geofenceId: string): Promise<any> {
+    const response = await this.api.delete(`/geofencing/${geofenceId}`);
+    return response.data;
+  }
+
+  async checkGeofenceViolation(touristId: string, latitude: number, longitude: number): Promise<any> {
+    const response = await this.api.post('/geofencing/check-violation', {
+      touristId,
+      latitude,
+      longitude
+    });
+    return response.data;
+  }
+
+  async bulkCheckGeofenceViolations(tourists: { touristId: string; latitude: number; longitude: number }[]): Promise<any> {
+    const response = await this.api.post('/geofencing/bulk-check', { tourists });
+    return response.data;
+  }
+
+  async getGeofenceViolations(touristId: string): Promise<any> {
+    const response = await this.api.get(`/geofencing/violations/${touristId}`);
+    return response.data;
+  }
+
+  async getGeofenceStats(days: number = 7): Promise<any> {
+    const response = await this.api.get('/geofencing/stats/violations', {
+      params: { days }
+    });
     return response.data;
   }
 }

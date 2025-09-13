@@ -51,7 +51,7 @@ class WebSocketService {
     this.isConnecting = true;
 
     try {
-      const wsUrl = process.env.REACT_APP_WEBSOCKET_URL || 'ws://localhost:3000';
+      const wsUrl = process.env.REACT_APP_WEBSOCKET_URL || 'ws://localhost:3001';
       console.log('🔌 WebSocket connecting to:', wsUrl);
       this.socket = io(wsUrl, {
         query: { token },

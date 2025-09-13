@@ -1,9 +1,9 @@
 // Google Maps Configuration
-// In production, move this to environment variables
+// API key is loaded from environment variables
 
 export const GOOGLE_MAPS_CONFIG = {
-  // Replace with your actual Google Maps API key
-  apiKey: 'AIzaSyBvOkBwAqIQ2h4dGjREu9wt7OJy1_F6L5Y', // This is a placeholder - get your key from Google Cloud Console
+  // Use environment variable for API key
+  apiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'AIzaSyDn5H4CtugS827eG6bCYwIhdY2pRQ5rMWA',
   
   // Map default settings
   defaultZoom: 15,

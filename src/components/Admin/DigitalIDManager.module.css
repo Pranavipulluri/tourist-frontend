@@ -1,0 +1,811 @@
+.digitalIDManager {
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  color: white;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.header h2 {
+  margin: 0 0 10px 0;
+  font-size: 2.5rem;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.header p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 1.1rem;
+}
+
+.serviceStatus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+  padding: 10px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+
+.statusIndicator {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.statusIndicator.connected {
+  background: rgba(76, 175, 80, 0.2);
+  border: 1px solid #4CAF50;
+}
+
+.statusIndicator.disconnected {
+  background: rgba(244, 67, 54, 0.2);
+  border: 1px solid #F44336;
+}
+
+.loadingSpinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(255,255,255,0.3);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.tabNavigation {
+  display: flex;
+  background: rgba(255,255,255,0.1);
+  border-radius: 15px;
+  padding: 5px;
+  margin-bottom: 30px;
+  backdrop-filter: blur(10px);
+  overflow-x: auto;
+}
+
+.tabButton {
+  flex: 1;
+  background: none;
+  border: none;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+.tabButton:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.tabButton.active {
+  background: rgba(255,255,255,0.2);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Overview Section */
+.overviewSection {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.statCard {
+  background: rgba(255,255,255,0.15);
+  padding: 25px;
+  border-radius: 15px;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: transform 0.3s ease;
+}
+
+.statCard:hover {
+  transform: translateY(-5px);
+}
+
+.statCard h3 {
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+.statValue {
+  font-size: 3rem;
+  font-weight: bold;
+  color: #FFD700;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.recentActivity {
+  background: rgba(255,255,255,0.1);
+  padding: 25px;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+}
+
+.recentActivity h3 {
+  margin: 0 0 20px 0;
+  font-size: 1.3rem;
+}
+
+.eventsList {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.eventItem {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+  padding: 12px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  border-left: 3px solid #FFD700;
+}
+
+.eventTime {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  min-width: 70px;
+}
+
+.eventContent {
+  flex: 1;
+}
+
+.eventType {
+  display: block;
+  font-weight: bold;
+  color: #FFD700;
+  margin-bottom: 5px;
+}
+
+.eventData {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  white-space: pre-wrap;
+}
+
+.noEvents {
+  text-align: center;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.quickActions {
+  background: rgba(255,255,255,0.1);
+  padding: 25px;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+}
+
+.quickActions h3 {
+  margin: 0 0 20px 0;
+  font-size: 1.3rem;
+}
+
+.actionButtons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.actionButton {
+  background: linear-gradient(45deg, #FF6B6B, #FF8E8E);
+  border: none;
+  color: white;
+  padding: 15px 25px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.actionButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+}
+
+/* Issue Form Section */
+.issueSection {
+  background: rgba(255,255,255,0.1);
+  padding: 30px;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+}
+
+.issueForm h3 {
+  margin: 0 0 30px 0;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.formGroup label {
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #FFD700;
+}
+
+.formGroup input,
+.formGroup select {
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  font-size: 1rem;
+  backdrop-filter: blur(5px);
+}
+
+.formGroup input::placeholder {
+  color: rgba(255,255,255,0.6);
+}
+
+.formGroup input:focus,
+.formGroup select:focus {
+  outline: none;
+  border-color: #FFD700;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.formActions {
+  text-align: center;
+}
+
+.submitButton {
+  background: linear-gradient(45deg, #4CAF50, #66BB6A);
+  border: none;
+  color: white;
+  padding: 15px 40px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.submitButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+}
+
+.submitButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Manage Section */
+.manageSection {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.manageSection h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.digitalIDsList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.digitalIDCard {
+  background: rgba(255,255,255,0.15);
+  padding: 25px;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: transform 0.3s ease;
+}
+
+.digitalIDCard:hover {
+  transform: translateY(-3px);
+}
+
+.digitalIDHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.digitalIDInfo h4 {
+  margin: 0 0 8px 0;
+  font-size: 1.3rem;
+  color: #FFD700;
+}
+
+.touristId,
+.blockchainId {
+  display: block;
+  font-size: 0.9rem;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+
+.digitalIDStatus {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.statusBadge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.emergencyBadge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: #FF5722;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 500;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+.digitalIDDetails {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.detailItem {
+  font-size: 0.9rem;
+}
+
+.detailItem strong {
+  color: #FFD700;
+}
+
+.daysLeft {
+  margin-left: 10px;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.accessLevels {
+  margin-bottom: 20px;
+}
+
+.accessLevels h5 {
+  margin: 0 0 12px 0;
+  color: #FFD700;
+}
+
+.accessGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.accessItem {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.accessItem.granted {
+  background: rgba(76, 175, 80, 0.3);
+  border: 1px solid #4CAF50;
+}
+
+.accessItem.denied {
+  background: rgba(244, 67, 54, 0.3);
+  border: 1px solid #F44336;
+}
+
+.digitalIDActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.actionBtn {
+  background: linear-gradient(45deg, #2196F3, #42A5F5);
+  border: none;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.actionBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Analytics Section */
+.analyticsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.analyticsSection h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.analyticsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.analyticsCard {
+  background: rgba(255,255,255,0.15);
+  padding: 25px;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.analyticsCard h4 {
+  margin: 0 0 20px 0;
+  color: #FFD700;
+  font-size: 1.2rem;
+}
+
+.statusChart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.statusLabel {
+  min-width: 80px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.statusBar {
+  flex: 1;
+  height: 20px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.statusFill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.statusCount {
+  min-width: 30px;
+  text-align: right;
+  font-weight: 500;
+}
+
+.accessStats,
+.securityStats {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.statItem {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.statItem:last-child {
+  border-bottom: none;
+}
+
+/* Emergency Section */
+.emergencySection {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.emergencySection h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  text-align: center;
+  color: #FF5722;
+}
+
+.emergencyAlert {
+  background: rgba(255, 87, 34, 0.2);
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid #FF5722;
+  text-align: center;
+}
+
+.emergencyAlert h4 {
+  margin: 0 0 10px 0;
+  color: #FF5722;
+}
+
+.emergencyActions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.emergencyCard {
+  background: rgba(255,255,255,0.1);
+  padding: 25px;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 87, 34, 0.3);
+  text-align: center;
+}
+
+.emergencyCard h5 {
+  margin: 0 0 12px 0;
+  color: #FF5722;
+  font-size: 1.1rem;
+}
+
+.emergencyCard p {
+  margin: 0 0 20px 0;
+  opacity: 0.9;
+  font-size: 0.9rem;
+}
+
+.emergencyButton {
+  background: linear-gradient(45deg, #FF5722, #FF7043);
+  border: none;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.emergencyButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+}
+
+.emergencyLogs {
+  background: rgba(255,255,255,0.1);
+  padding: 25px;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+}
+
+.emergencyLogs h4 {
+  margin: 0 0 20px 0;
+  color: #FF5722;
+}
+
+.logsList {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.logItem {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 12px;
+  padding: 10px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  border-left: 3px solid #FF5722;
+}
+
+.logTime {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  min-width: 150px;
+}
+
+.logId {
+  flex: 1;
+  font-weight: 500;
+}
+
+.logAction {
+  color: #FF5722;
+  font-weight: 500;
+}
+
+.noLogs {
+  text-align: center;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+/* Modal */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.modalContent {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 15px;
+  max-width: 80vw;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+.modalHeader h3 {
+  margin: 0;
+  color: white;
+}
+
+.closeModal {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 5px;
+  transition: background 0.3s ease;
+}
+
+.closeModal:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.modalBody {
+  padding: 25px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.logEntry {
+  padding: 10px;
+  margin-bottom: 8px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 0.9rem;
+  border-left: 3px solid #FFD700;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .digitalIDManager {
+    padding: 15px;
+  }
+  
+  .header h2 {
+    font-size: 2rem;
+  }
+  
+  .tabNavigation {
+    flex-direction: column;
+  }
+  
+  .tabButton {
+    min-width: auto;
+  }
+  
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .digitalIDHeader {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .digitalIDActions {
+    justify-content: center;
+  }
+  
+  .analyticsGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .emergencyActions {
+    grid-template-columns: 1fr;
+  }
+  
+  .modalContent {
+    max-width: 95vw;
+    max-height: 95vh;
+  }
+}

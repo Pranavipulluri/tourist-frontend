@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { apiService, Location, Tourist } from '../../services/api';
+import { Location, Tourist } from '../../services/api';
+import { hybridApiService } from '../../services/hybrid-api';
+import './TouristsList.css';
 
 interface TouristWithActivity extends Tourist {
   isActive?: boolean;
@@ -19,11 +21,12 @@ export const TouristsList: React.FC = () => {
   const [locationHistory, setLocationHistory] = useState<any[]>([]);
   const [showGeofencing, setShowGeofencing] = useState(false);
   const [geofenceViolations, setGeofenceViolations] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadTourists();
     
-    // Setup WebSocket listeners for real-time updates
+    // Setup real-time listeners
     const handleLocationUpdate = (data: any) => {
       console.log('📍 Real-time location update:', data);
       setTourists(prev => prev.map(tourist => 
@@ -60,9 +63,8 @@ export const TouristsList: React.FC = () => {
 
     const handleGeofenceViolation = (data: any) => {
       console.log('🚨 Geofence violation detected:', data);
-      setGeofenceViolations(prev => [data, ...prev.slice(0, 9)]); // Keep last 10 violations
+      setGeofenceViolations(prev => [data, ...prev.slice(0, 9)]);
       
-      // Update tourist status to show violation
       setTourists(prev => prev.map(tourist => 
         tourist.id === data.touristId 
           ? { ...tourist, hasGeofenceViolation: true }
@@ -70,10 +72,8 @@ export const TouristsList: React.FC = () => {
       ));
     };
 
-    // Setup real-time listeners
-    // Note: These should be properly implemented in websocket service
+    // Mock real-time events setup
     const mockSetupRealTimeEvents = () => {
-      // Simulate real-time location updates every 30 seconds
       const locationInterval = setInterval(() => {
         if (tourists.length > 0) {
           const randomTourist = tourists[Math.floor(Math.random() * tourists.length)];
@@ -94,10 +94,7 @@ export const TouristsList: React.FC = () => {
 
     const cleanup = mockSetupRealTimeEvents();
     
-    return () => {
-      cleanup();
-      // Cleanup real WebSocket listeners when implemented
-    };
+    return cleanup;
   }, [tourists.length]);
 
   const loadTourists = async () => {
@@ -105,14 +102,12 @@ export const TouristsList: React.FC = () => {
       setLoading(true);
       setError('');
       
-      console.log('🔍 Loading real tourist data...');
-      console.log('🌐 API Base URL:', process.env.REACT_APP_API_URL || 'http://localhost:3001');
-      
-      const touristsData = await apiService.getAllTourists();
+      console.log('🔍 Loading tourist data...');
+      const touristsData = await hybridApiService.getAllTourists();
       console.log('📊 Received tourists data:', touristsData);
       
       if (!touristsData || touristsData.length === 0) {
-        console.log('⚠️ No tourists found in database - checking for users like Pranavi Pulluri');
+        console.log('⚠️ No tourists found in database');
         setError('No registered tourists found. Make sure users are registered with TOURIST role.');
         setTourists([]);
         return;
@@ -122,11 +117,9 @@ export const TouristsList: React.FC = () => {
       const enhancedTourists = await Promise.all(
         touristsData.map(async (tourist) => {
           try {
-            // Get real location history
-            const locationHistory = await apiService.getTouristLocationHistory(tourist.id);
-            const latestLocation = locationHistory[0];
+            const locationHistory = await hybridApiService.getLocationHistory(tourist.id);
+            const latestLocation = locationHistory.locations[0];
             
-            // Calculate real online status (last location within 10 minutes)
             const isOnline = latestLocation 
               ? (Date.now() - new Date(latestLocation.timestamp).getTime()) < 10 * 60 * 1000
               : false;
@@ -135,7 +128,7 @@ export const TouristsList: React.FC = () => {
             
             return {
               ...tourist,
-              isActive: true, // All registered users are considered active unless explicitly deactivated
+              isActive: true,
               isOnline,
               lastLocationUpdate: latestLocation?.timestamp || null,
               currentLocation: latestLocation || null
@@ -158,7 +151,7 @@ export const TouristsList: React.FC = () => {
       
     } catch (err: any) {
       console.error('❌ Failed to load tourists:', err);
-      setError(`Failed to load tourists: ${err.message || 'Network error'}. Check if backend is running and users are registered with TOURIST role.`);
+      setError(`Failed to load tourists: ${err.message || 'Network error'}. Check if backend is running.`);
       setTourists([]);
     } finally {
       setLoading(false);
@@ -171,7 +164,7 @@ export const TouristsList: React.FC = () => {
       if (!tourist) return;
 
       const newStatus = tourist.isActive ? 'inactive' : 'active';
-      await apiService.updateTouristStatus(touristId, newStatus);
+      await hybridApiService.updateTouristStatus(touristId, newStatus);
       
       setTourists(prev => prev.map(t => 
         t.id === touristId 
@@ -189,8 +182,8 @@ export const TouristsList: React.FC = () => {
   const viewLocationHistory = async (tourist: TouristWithActivity) => {
     try {
       setSelectedTourist(tourist);
-      const history = await apiService.getTouristLocationHistory(tourist.id);
-      setLocationHistory(history);
+      const history = await hybridApiService.getLocationHistory(tourist.id);
+      setLocationHistory(history.locations);
       setShowLocationHistory(true);
     } catch (err) {
       console.error('Failed to load location history:', err);
@@ -207,57 +200,98 @@ export const TouristsList: React.FC = () => {
     }
   };
 
+  const handleRetry = () => {
+    setError('');
+    loadTourists();
+  };
+
   const filteredTourists = tourists.filter(tourist => {
-    if (statusFilter === 'all') return true;
-    if (statusFilter === 'active') return tourist.isActive;
-    if (statusFilter === 'inactive') return !tourist.isActive;
-    if (statusFilter === 'online') return tourist.isOnline;
-    return true;
+    const matchesStatus = (() => {
+      if (statusFilter === 'all') return true;
+      if (statusFilter === 'active') return tourist.isActive;
+      if (statusFilter === 'inactive') return !tourist.isActive;
+      if (statusFilter === 'online') return tourist.isOnline;
+      return true;
+    })();
+
+    const matchesSearch = searchQuery === '' || 
+      `${tourist.firstName} ${tourist.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tourist.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tourist.phoneNumber.includes(searchQuery);
+
+    return matchesStatus && matchesSearch;
   });
 
   if (loading) {
     return (
-      <div className="tourists-list loading">
-        <div className="loading-spinner"></div>
-        <p>Loading tourists data...</p>
-      </div>
-    );
-  }
-
-  if (error && tourists.length === 0) {
-    return (
-      <div className="tourists-list error">
-        <p className="error-message">{error}</p>
-        <button onClick={loadTourists} className="retry-btn">
-          Retry
-        </button>
+      <div className="tourists-list-container">
+        <div className="loading-container">
+          <div className="loading-spinner" />
+          <p className="loading-text">Loading tourists data...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="tourists-list">
+    <div className="tourists-list-container">
+      {/* Header */}
       <div className="tourists-header">
-        <h3>👥 Registered Tourists ({tourists.length})</h3>
-        <div className="tourists-stats">
-          <div className="stat-item">
-            <span className="stat-number">{tourists.filter(t => t.isOnline).length}</span>
-            <span className="stat-label">Online</span>
+        <div className="header-content">
+          <div className="header-title">
+            <h2>Registered Tourists</h2>
+            <p className="header-subtitle">Manage and monitor tourist activities</p>
           </div>
-          <div className="stat-item">
-            <span className="stat-number">{tourists.filter(t => t.isActive).length}</span>
-            <span className="stat-label">Active</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{tourists.filter(t => !t.isActive).length}</span>
-            <span className="stat-label">Inactive</span>
+          
+          {/* Stats */}
+          <div className="tourists-stats">
+            <div className="stat-item">
+              <div className="stat-number">{tourists.filter(t => t.isOnline).length}</div>
+              <div className="stat-label">Online</div>
+            </div>
+            <div className="stat-item">
+              <div className="stat-number">{tourists.filter(t => t.isActive).length}</div>
+              <div className="stat-label">Active</div>
+            </div>
+            <div className="stat-item">
+              <div className="stat-number">{tourists.length}</div>
+              <div className="stat-label">Total</div>
+            </div>
           </div>
         </div>
+      </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="error-banner">
+          <div className="error-content">
+            <span className="error-icon">⚠️</span>
+            <span className="error-message">{error}</span>
+          </div>
+          <button className="retry-button" onClick={handleRetry}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Controls */}
+      <div className="tourists-controls">
+        <div className="search-container">
+          <input
+            type="text"
+            placeholder="Search tourists..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+          <span className="search-icon">🔍</span>
+        </div>
+        
         <div className="filter-controls">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="status-filter"
+            className="filter-select"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -267,131 +301,146 @@ export const TouristsList: React.FC = () => {
           
           <button 
             onClick={() => setShowGeofencing(!showGeofencing)}
-            className={`geofence-toggle ${showGeofencing ? 'active' : ''}`}
+            className={`control-button ${showGeofencing ? 'active' : ''}`}
           >
-            🗺️ {showGeofencing ? 'Hide' : 'Show'} Geofencing
+            <span>🗺️</span>
+            {showGeofencing ? 'Hide' : 'Show'} Geofencing
           </button>
           
-          <button onClick={loadTourists} className="refresh-btn">
-            🔄 Refresh
+          <button onClick={loadTourists} className="control-button">
+            <span>🔄</span>
+            Refresh
           </button>
         </div>
       </div>
 
-      {error && (
-        <div className="error-banner">
-          <span>⚠️ {error}</span>
-          <button onClick={loadTourists} className="retry-button">
-            Retry
-          </button>
-        </div>
-      )}
-
+      {/* Geofencing Panel */}
       {showGeofencing && (
         <div className="geofencing-panel">
-          <h4>🛡️ Geofencing Monitor</h4>
-          {geofenceViolations.length > 0 ? (
-            <div className="violations-list">
-              {geofenceViolations.map((violation, index) => (
-                <div key={index} className="violation-item">
-                  <span className="violation-time">
-                    {new Date(violation.timestamp).toLocaleTimeString()}
-                  </span>
-                  <span className="violation-tourist">
-                    {violation.touristName}
-                  </span>
-                  <span className="violation-zone">
-                    Exited: {violation.zoneName}
-                  </span>
-                  <span className="violation-location">
-                    📍 {violation.location?.address || 'Unknown location'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="no-violations">
-              ✅ No geofence violations detected
-            </div>
-          )}
+          <div className="panel-header">
+            <h3>🛡️ Geofencing Monitor</h3>
+          </div>
+          <div className="panel-content">
+            {geofenceViolations.length > 0 ? (
+              <div className="violations-list">
+                {geofenceViolations.map((violation, index) => (
+                  <div key={index} className="violation-item">
+                    <div className="violation-time">
+                      {new Date(violation.timestamp).toLocaleTimeString()}
+                    </div>
+                    <div className="violation-details">
+                      <div className="violation-tourist">{violation.touristName}</div>
+                      <div className="violation-zone">Exited: {violation.zoneName}</div>
+                      <div className="violation-location">
+                        📍 {violation.location?.address || 'Unknown location'}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="no-violations">
+                <span className="success-icon">✅</span>
+                <p>No geofence violations detected</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
+      {/* Tourists Grid */}
       <div className="tourists-grid">
-        <div className="grid-header">
-          <div className="col-tourist">Tourist</div>
-          <div className="col-contact">Contact</div>
-          <div className="col-nationality">Nationality</div>
-          <div className="col-status">Status</div>
-          <div className="col-last-seen">Last Seen</div>
-          <div className="col-actions">Actions</div>
-        </div>
-
         {filteredTourists.map((tourist) => (
-          <div key={tourist.id} className={`tourist-row ${tourist.hasGeofenceViolation ? 'geofence-violation' : ''}`}>
-            <div className="col-tourist">
+          <div 
+            key={tourist.id} 
+            className={`tourist-card ${tourist.hasGeofenceViolation ? 'has-violation' : ''}`}
+          >
+            {/* Tourist Header */}
+            <div className="tourist-header">
               <div className="tourist-avatar">
-                {tourist.firstName[0]}{tourist.lastName[0]}
+                <div className="avatar-circle">
+                  {tourist.firstName[0]}{tourist.lastName[0]}
+                </div>
+                <div className="status-indicators">
+                  {tourist.isOnline && <div className="online-indicator" title="Online" />}
+                  {tourist.hasGeofenceViolation && <div className="violation-indicator" title="Geofence Violation">⚠️</div>}
+                </div>
               </div>
               <div className="tourist-info">
-                <span className="tourist-name">
+                <h4 className="tourist-name">
                   {tourist.firstName} {tourist.lastName}
-                  {tourist.hasGeofenceViolation && <span className="violation-flag">⚠️</span>}
-                </span>
-                <span className="tourist-id">ID: {tourist.id.slice(0, 8)}</span>
-                <span className="tourist-passport">Passport: {tourist.passportNumber}</span>
-              </div>
-            </div>
-            <div className="col-contact">
-              <div className="contact-email">{tourist.email}</div>
-              <div className="contact-phone">{tourist.phoneNumber}</div>
-              <div className="emergency-contact">
-                Emergency: {tourist.emergencyContact}
-              </div>
-            </div>
-            <div className="col-nationality">
-              <span className="nationality-flag">🌍</span>
-              {tourist.nationality}
-            </div>
-            <div className="col-status">
-              <span className={`status-badge ${tourist.isActive ? 'active' : 'inactive'}`}>
-                {tourist.isActive ? 'Active' : 'Inactive'}
-              </span>
-              {tourist.isOnline && (
-                <span className="online-indicator">🟢 Online</span>
-              )}
-              {tourist.currentLocation && (
-                <div className="location-info">
-                  📍 {tourist.currentLocation.address || 'Live Location'}
-                </div>
-              )}
-            </div>
-            <div className="col-last-seen">
-              {tourist.lastLocationUpdate ? (
-                <div className="last-seen-info">
-                  <div className="timestamp">
-                    {new Date(tourist.lastLocationUpdate).toLocaleString()}
-                  </div>
-                  {tourist.currentLocation && (
-                    <div className="coordinates">
-                      {tourist.currentLocation.latitude.toFixed(4)}, {tourist.currentLocation.longitude.toFixed(4)}
-                    </div>
+                </h4>
+                <p className="tourist-nationality">{tourist.nationality}</p>
+                <div className="tourist-badges">
+                  <span className={`status-badge ${tourist.isActive ? 'active' : 'inactive'}`}>
+                    {tourist.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                  {tourist.isOnline && (
+                    <span className="online-badge">Online</span>
                   )}
                 </div>
-              ) : (
-                <span className="no-location">Never tracked</span>
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div className="contact-section">
+              <div className="contact-item">
+                <span className="contact-icon">📧</span>
+                <span className="contact-value">{tourist.email}</span>
+              </div>
+              <div className="contact-item">
+                <span className="contact-icon">📞</span>
+                <span className="contact-value">{tourist.phoneNumber}</span>
+              </div>
+              {tourist.emergencyContact && (
+                <div className="contact-item emergency">
+                  <span className="contact-icon">🚨</span>
+                  <span className="contact-value">Emergency: {tourist.emergencyContact}</span>
+                </div>
               )}
             </div>
-            <div className="col-actions">
+
+            {/* Location Info */}
+            <div className="location-section">
+              {tourist.currentLocation ? (
+                <div className="location-info">
+                  <div className="location-header">
+                    <span className="location-icon">📍</span>
+                    <span className="location-label">Current Location</span>
+                  </div>
+                  <p className="location-address">
+                    {tourist.currentLocation.address || 'Live Location'}
+                  </p>
+                  <div className="location-coordinates">
+                    {tourist.currentLocation.latitude.toFixed(4)}, {tourist.currentLocation.longitude.toFixed(4)}
+                  </div>
+                </div>
+              ) : (
+                <div className="no-location">
+                  <span className="location-icon">📍</span>
+                  <span>Location not available</span>
+                </div>
+              )}
+
+              {tourist.lastLocationUpdate && (
+                <div className="last-seen">
+                  Last seen: {new Date(tourist.lastLocationUpdate).toLocaleString()}
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="tourist-actions">
               <button 
-                className="action-button view"
+                className="action-button primary"
                 onClick={() => viewLocationHistory(tourist)}
                 title="View Location History"
               >
-                👁️ History
+                <span>👁️</span>
+                History
               </button>
               <button 
-                className="action-button track"
+                className="action-button secondary"
                 onClick={() => {
                   if (tourist.currentLocation) {
                     window.open(`https://maps.google.com/?q=${tourist.currentLocation.latitude},${tourist.currentLocation.longitude}`);
@@ -402,33 +451,58 @@ export const TouristsList: React.FC = () => {
                 title="Track on Map"
                 disabled={!tourist.currentLocation}
               >
-                📍 Track
+                <span>📍</span>
+                Track
               </button>
               <button 
-                className="action-button contact"
+                className="action-button secondary"
                 onClick={() => window.open(`tel:${tourist.phoneNumber}`)}
                 title="Contact Tourist"
               >
-                📞 Call
+                <span>📞</span>
+                Call
               </button>
               <button 
-                className={`action-button status ${tourist.isActive ? 'active' : 'inactive'}`}
+                className={`action-button ${tourist.isActive ? 'danger' : 'success'}`}
                 onClick={() => toggleTouristStatus(tourist.id)}
                 title={`${tourist.isActive ? 'Deactivate' : 'Activate'} Tourist`}
               >
-                {tourist.isActive ? '⏸️' : '▶️'}
+                <span>{tourist.isActive ? '⏸️' : '▶️'}</span>
+                {tourist.isActive ? 'Pause' : 'Activate'}
               </button>
             </div>
           </div>
         ))}
       </div>
 
+      {/* Empty State */}
+      {filteredTourists.length === 0 && !loading && (
+        <div className="empty-state">
+          <div className="empty-icon">👥</div>
+          <h3>No tourists found</h3>
+          <p>
+            {searchQuery 
+              ? 'No tourists match your search criteria.' 
+              : 'No registered tourists available.'
+            }
+          </p>
+          {searchQuery && (
+            <button 
+              className="action-button primary"
+              onClick={() => setSearchQuery('')}
+            >
+              Clear Search
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Location History Modal */}
       {showLocationHistory && selectedTourist && (
         <div className="modal-overlay" onClick={() => setShowLocationHistory(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>📍 Location History - {selectedTourist.firstName} {selectedTourist.lastName}</h3>
+              <h3>Location History - {selectedTourist.firstName} {selectedTourist.lastName}</h3>
               <button 
                 className="modal-close"
                 onClick={() => setShowLocationHistory(false)}
@@ -436,23 +510,23 @@ export const TouristsList: React.FC = () => {
                 ✕
               </button>
             </div>
-            <div className="modal-body">
+            <div className="modal-content">
               <div className="location-history">
                 {locationHistory.map((location, index) => (
-                  <div key={index} className="location-entry">
-                    <div className="location-time">
+                  <div key={index} className="history-entry">
+                    <div className="history-time">
                       {new Date(location.timestamp).toLocaleString()}
                     </div>
-                    <div className="location-details">
-                      <div className="coordinates">
+                    <div className="history-details">
+                      <div className="history-coordinates">
                         📍 {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
                       </div>
                       {location.address && (
-                        <div className="address">🏠 {location.address}</div>
+                        <div className="history-address">🏠 {location.address}</div>
                       )}
                     </div>
                     <button
-                      className="map-button"
+                      className="history-map-button"
                       onClick={() => window.open(`https://maps.google.com/?q=${location.latitude},${location.longitude}`)}
                     >
                       View on Map

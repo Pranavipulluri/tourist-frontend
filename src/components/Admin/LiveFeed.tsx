@@ -39,16 +39,23 @@ export const LiveFeed: React.FC = () => {
   const loadLiveFeed = async () => {
     try {
       const feed = await apiService.getLiveFeed(20);
-      setFeedItems(feed);
+      // Ensure feed is an array before setting state
+      setFeedItems(Array.isArray(feed) ? feed : []);
     } catch (error) {
       console.error('Failed to load live feed:', error);
+      // Set empty array on error
+      setFeedItems([]);
     } finally {
       setLoading(false);
     }
   };
 
   const addFeedItem = (item: any) => {
-    setFeedItems((prev: any) => [item, ...prev.slice(0, 19)]); // Keep only latest 20 items
+    setFeedItems((prev: any) => {
+      // Ensure prev is an array before using slice
+      const prevArray = Array.isArray(prev) ? prev : [];
+      return [item, ...prevArray.slice(0, 19)]; // Keep only latest 20 items
+    });
   };
 
   const getItemIcon = (type: string) => {
@@ -88,7 +95,7 @@ export const LiveFeed: React.FC = () => {
         </div>
       ) : (
         <div className="feed-container">
-          {feedItems.length === 0 ? (
+          {!Array.isArray(feedItems) || feedItems.length === 0 ? (
             <div className="no-feed-items">
               <span className="no-feed-icon">📡</span>
               <p>No recent activity</p>

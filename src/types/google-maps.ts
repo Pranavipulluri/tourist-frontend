@@ -3,6 +3,7 @@ declare global {
   interface Window {
     google: any; // Using 'any' to avoid conflicts
     initMap?: () => void;
+    initGoogleMaps?: () => void; // Add this for geofencing component
   }
 }
 

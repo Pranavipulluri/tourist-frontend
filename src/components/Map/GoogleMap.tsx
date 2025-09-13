@@ -1,6 +1,5 @@
-import { Loader } from '@googlemaps/js-api-loader';
 import React, { useEffect, useRef, useState } from 'react';
-import GOOGLE_MAPS_CONFIG from '../../config/maps';
+import { mapsLoader } from '../../services/mapsLoader';
 import PlacesService, { NearbyPlace, SafetyZone } from '../../services/placesService';
 import '../../types/google-maps';
 
@@ -69,24 +68,33 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [safetyZones, setSafetyZones] = useState<SafetyZone[]>([]);
   const [placesService, setPlacesService] = useState<PlacesService | null>(null);
 
-  // Google Maps API key from config
-  const API_KEY = GOOGLE_MAPS_CONFIG.apiKey;
-
   useEffect(() => {
-    const loader = new Loader({
-      apiKey: API_KEY,
-      version: 'weekly',
-      libraries: ['geometry', 'places']
-    });
+    const loadMaps = async () => {
+      try {
+        setMapError(null);
+        console.log('🗺️ Loading Google Maps with singleton loader...');
+        
+        await mapsLoader.loadGoogleMaps();
+        setIsLoaded(true);
+        console.log('✅ Google Maps loaded successfully');
+      } catch (error) {
+        console.error('❌ Failed to load Google Maps:', error);
+        setMapError('Failed to load Google Maps. Using fallback functionality.');
+        setIsLoaded(false);
+        
+        // Initialize places service anyway for mock data
+        const service = PlacesService.getInstance();
+        setPlacesService(service);
+      }
+    };
 
-    loader.load().then(() => {
-      setIsLoaded(true);
-    }).catch(console.error);
-  }, [API_KEY]);
+    loadMaps();
+  }, []); // Remove API_KEY dependency since we're using singleton loader
 
   useEffect(() => {
     if (isLoaded && mapRef.current && !map && window.google) {
@@ -342,7 +350,20 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
     }
   }, [map, center]);
 
-  if (!isLoaded) {
+  // Show error message if Maps API failed to load
+  if (mapError && !isLoaded) {
+    return (
+      <div className={`${className} flex items-center justify-center bg-gray-100 rounded-lg p-4`}>
+        <div className="text-center">
+          <div className="text-yellow-600 mb-2">⚠️</div>
+          <p className="text-gray-700 text-sm mb-2">{mapError}</p>
+          <p className="text-gray-500 text-xs">Map features may be limited</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoaded && !mapError) {
     return (
       <div className={`${className} flex items-center justify-center bg-gray-100 rounded-lg`}>
         <div className="text-center">

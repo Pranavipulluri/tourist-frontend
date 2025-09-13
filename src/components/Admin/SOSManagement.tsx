@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { apiService, Tourist } from '../../services/api';
+import { Tourist } from '../../services/api';
+import { hybridApiService } from '../../services/hybrid-api';
 import { websocketService } from '../../services/websocket';
 
 interface SOSAlert {
@@ -54,7 +55,7 @@ export const SOSManagement: React.FC = () => {
       setError('');
       
       console.log('🚨 Loading SOS alerts from real database...');
-      const alerts = await apiService.getSOSAlertsAdmin();
+      const alerts = await hybridApiService.getSOSAlertsAdmin();
       console.log('✅ SOS alerts received:', alerts);
       
       // Enhance alerts with tourist and location data
@@ -63,7 +64,7 @@ export const SOSManagement: React.FC = () => {
           try {
             let tourist = null;
             try {
-              tourist = await apiService.getTouristById(alert.touristId);
+              tourist = await hybridApiService.getTouristById(alert.touristId);
             } catch (touristError) {
               console.warn(`Could not load tourist data for ${alert.touristId}:`, touristError);
             }
@@ -142,7 +143,7 @@ export const SOSManagement: React.FC = () => {
   const handleMarkAsHandled = async (alert: SOSAlert) => {
     try {
       console.log('🔄 Marking alert as resolved:', alert.id);
-      await apiService.resolveAlert(alert.id, 'Admin User');
+      await hybridApiService.resolveAlert(alert.id, 'Admin User');
       
       setSOSAlerts(prev => prev.map(a => 
         a.id === alert.id

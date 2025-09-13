@@ -1,0 +1,176 @@
+.blockchainMonitor {
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.blockchainHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.testButton {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.testButton:hover {
+  background: #0056b3;
+}
+
+.statusSection, .sosSection, .eventsSection {
+  margin-bottom: 25px;
+}
+
+.statusGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.statusItem {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.statusLabel {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.statusValue {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.connected {
+  color: #28a745;
+}
+
+.disconnected {
+  color: #dc3545;
+}
+
+.sosList, .eventsList {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.sosItem, .eventItem {
+  padding: 12px;
+  margin-bottom: 8px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 3px solid #007bff;
+}
+
+.sosHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.sosType {
+  background: #dc3545;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sosTime {
+  font-size: 12px;
+  color: #666;
+}
+
+.sosDetails {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.touristId {
+  color: #495057;
+}
+
+.txHash {
+  color: #6c757d;
+  font-family: monospace;
+}
+
+.verified {
+  color: #28a745;
+}
+
+.pending {
+  color: #ffc107;
+}
+
+.eventItem {
+  border-left-color: #28a745;
+}
+
+.eventTime {
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.eventContent {
+  display: flex;
+  gap: 10px;
+}
+
+.eventType {
+  background: #28a745;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.eventMessage {
+  font-size: 12px;
+  color: #495057;
+}
+
+.noRecords, .noEvents {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 20px;
+}
+
+.loadingSpinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
