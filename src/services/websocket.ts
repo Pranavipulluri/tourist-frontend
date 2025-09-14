@@ -19,6 +19,13 @@ interface WebSocketEventHandlers {
   'new_tourist_registered': (data: any) => void;
   'sos_alert_created': (alert: any) => void;
   'sos_alert_handled': (alert: any) => void;
+  // Enhanced Emergency System Events
+  'emergency_alert_broadcast': (alert: any) => void;
+  'emergency_alert_updated': (alert: any) => void;
+  'emergency_alert_status_changed': (alert: any) => void;
+  'call_status_update': (callData: any) => void;
+  'twilio_call_status': (callData: any) => void;
+  'emergency_location_update': (data: any) => void;
   'message': (message: WebSocketMessage) => void;
   'connected': () => void;
   'disconnected': () => void;
@@ -197,8 +204,18 @@ class WebSocketService {
     this.eventHandlers[event] = handler;
   }
 
-  off<K extends keyof WebSocketEventHandlers>(event: K) {
-    delete this.eventHandlers[event];
+  off<K extends keyof WebSocketEventHandlers>(event: K, handler?: WebSocketEventHandlers[K]) {
+    if (handler) {
+      // If a specific handler is provided, we would need to track multiple handlers
+      // For now, just remove the event handler if it matches
+      const currentHandler = this.eventHandlers[event];
+      if (currentHandler === handler) {
+        delete this.eventHandlers[event];
+      }
+    } else {
+      // Remove all handlers for this event
+      delete this.eventHandlers[event];
+    }
   }
 
   emit(event: string, data?: any) {

@@ -1,10 +1,14 @@
+import 'leaflet/dist/leaflet.css';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Language, useLanguage } from '../../contexts/LanguageContext';
 import { Alert, Location as ApiLocation, apiService, IoTDevice } from '../../services/api';
+import { EmergencyAlert, EmergencyCallRequest, emergencyResponseService, TwilioCallSession } from '../../services/emergencyResponse';
 import { NavigationService } from '../../services/navigation';
 import PlacesService, { NearbyPlace } from '../../services/placesService';
+import { websocketService } from '../../services/websocket';
 import GoogleMap from '../Map/GoogleMap';
+import LeafletTouristMap from '../Map/LeafletTouristMap';
 import { AlertsList } from './AlertsList';
 import { DeviceStatus } from './DeviceStatus';
 import { EmergencyPanel } from './EmergencyPanel';
@@ -30,13 +34,86 @@ export const TouristDashboard: React.FC = () => {
   const [mapType, setMapType] = useState<'safety' | 'emergency' | 'hotels' | 'restaurants' | 'shopping'>('safety');
   const [selectedDestination, setSelectedDestination] = useState<{ lat: number; lng: number } | null>(null);
   const [showRoute, setShowRoute] = useState(false);
+  const [selectedPlaceTypes, setSelectedPlaceTypes] = useState<string[]>(['hospital', 'police', 'restaurant']);
+  const [filteredPlaces, setFilteredPlaces] = useState<NearbyPlace[]>([]);
+  
+  // Enhanced Emergency System State
+  const [activeEmergencyAlerts, setActiveEmergencyAlerts] = useState<EmergencyAlert[]>([]);
+  const [emergencyCallSession, setEmergencyCallSession] = useState<TwilioCallSession | null>(null);
+  const [emergencyCallInProgress, setEmergencyCallInProgress] = useState(false);
+  const [emergencyLocationTracking, setEmergencyLocationTracking] = useState(false);
+  const [lastEmergencyAlert, setLastEmergencyAlert] = useState<EmergencyAlert | null>(null);
+  const [emergencyNotifications, setEmergencyNotifications] = useState<number>(0);
 
   useEffect(() => {
     loadDashboardData();
     loadReviews();
     loadEmergencyData();
     loadItinerary();
+    initializeEmergencySystem();
   }, []);
+
+  // Initialize enhanced emergency response system
+  useEffect(() => {
+    const emergencyCallbackId = emergencyResponseService.onEmergencyAlert((alert: EmergencyAlert) => {
+      setActiveEmergencyAlerts(prev => [alert, ...prev]);
+      setLastEmergencyAlert(alert);
+      setEmergencyNotifications(prev => prev + 1);
+      
+      // Auto-switch to emergency tab for critical alerts
+      if (alert.severity === 'CRITICAL') {
+        setActiveTab('emergency');
+      }
+    });
+
+    return () => {
+      emergencyResponseService.offEmergencyAlert(emergencyCallbackId);
+    };
+  }, []);
+
+  // WebSocket listeners for real-time emergency updates
+  useEffect(() => {
+    const handleCallStatusUpdate = (callData: TwilioCallSession) => {
+      setEmergencyCallSession(callData);
+      setEmergencyCallInProgress(callData.status === 'ringing' || callData.status === 'answered');
+    };
+
+    const handleEmergencyLocationUpdate = (data: any) => {
+      if (data.alertId && lastEmergencyAlert?.id === data.alertId) {
+        setCurrentLocation(data.location);
+      }
+    };
+
+    websocketService.on('call_status_update', handleCallStatusUpdate);
+    websocketService.on('emergency_location_update', handleEmergencyLocationUpdate);
+
+    return () => {
+      websocketService.off('call_status_update');
+      websocketService.off('emergency_location_update');
+    };
+  }, [lastEmergencyAlert]);
+
+  const initializeEmergencySystem = async () => {
+    try {
+      // Request notification permissions
+      if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+
+      // Load existing emergency alerts
+      const existingAlerts = await emergencyResponseService.getEmergencyAlerts('ACTIVE');
+      setActiveEmergencyAlerts(existingAlerts);
+
+      console.log('✅ Emergency response system initialized');
+    } catch (error) {
+      console.error('❌ Failed to initialize emergency system:', error);
+    }
+  };
+
+  // Update filtered places when nearbyPlaces or selectedPlaceTypes change
+  useEffect(() => {
+    filterPlacesByType(nearbyPlaces, selectedPlaceTypes);
+  }, [nearbyPlaces, selectedPlaceTypes]);
 
   const loadDashboardData = async () => {
     try {
@@ -85,45 +162,68 @@ export const TouristDashboard: React.FC = () => {
       const placesService = PlacesService.getInstance();
       
       // Get different types of places
-      const [hospitals, police, restaurants] = await Promise.all([
+      const [hospitals, police, restaurants, hotels] = await Promise.all([
         placesService.getHospitals({ lat: location.latitude, lng: location.longitude }),
         placesService.getPoliceStations({ lat: location.latitude, lng: location.longitude }),
-        placesService.getRestaurants({ lat: location.latitude, lng: location.longitude })
+        placesService.getRestaurants({ lat: location.latitude, lng: location.longitude }),
+        placesService.getNearbyPlaces({ lat: location.latitude, lng: location.longitude }, 2000)
       ]);
 
-      // Combine and sort by distance
-      const allPlaces = [...hospitals.slice(0, 3), ...police.slice(0, 2), ...restaurants.slice(0, 3)]
-        .sort((a, b) => a.distance - b.distance)
-        .slice(0, 6); // Show top 6 nearest places
+      // Combine all places and mark their types
+      const allPlaces = [
+        ...hospitals.slice(0, 5).map(p => ({ ...p, type: 'hospital' as const })),
+        ...police.slice(0, 3).map(p => ({ ...p, type: 'police' as const })),
+        ...restaurants.slice(0, 8).map(p => ({ ...p, type: 'restaurant' as const })),
+        ...hotels.filter(p => p.type === 'hotel').slice(0, 4)
+      ].sort((a, b) => a.distance - b.distance);
 
-      console.log('📍 Fetched real nearby places:', allPlaces);
+      console.log('📍 Fetched all nearby places:', allPlaces);
       setNearbyPlaces(allPlaces);
+      filterPlacesByType(allPlaces, selectedPlaceTypes);
     } catch (error) {
       console.error('Error fetching nearby places:', error);
       // Use mock data as fallback
-      setNearbyPlaces([
+      const fallbackPlaces = [
         {
           id: 'fallback_1',
           name: 'Nearby Hospital',
-          type: 'hospital',
+          type: 'hospital' as const,
           position: { lat: location.latitude + 0.002, lng: location.longitude + 0.003 },
           distance: 300,
           address: 'Emergency Services Area',
-          safetyLevel: 'safe'
+          safetyLevel: 'safe' as const
         },
         {
           id: 'fallback_2',
           name: 'Police Station',
-          type: 'police',
+          type: 'police' as const,
           position: { lat: location.latitude - 0.001, lng: location.longitude + 0.002 },
           distance: 150,
           address: 'Local Police District',
-          safetyLevel: 'safe'
+          safetyLevel: 'safe' as const
         }
-      ]);
+      ];
+      setNearbyPlaces(fallbackPlaces);
+      filterPlacesByType(fallbackPlaces, selectedPlaceTypes);
     } finally {
       setPlacesLoading(false);
     }
+  };
+
+  // Filter places by selected types
+  const filterPlacesByType = (places: NearbyPlace[], types: string[]) => {
+    const filtered = places.filter(place => types.includes(place.type));
+    setFilteredPlaces(filtered);
+  };
+
+  // Handle place type filter toggle
+  const togglePlaceType = (placeType: string) => {
+    const newSelectedTypes = selectedPlaceTypes.includes(placeType)
+      ? selectedPlaceTypes.filter(type => type !== placeType)
+      : [...selectedPlaceTypes, placeType];
+    
+    setSelectedPlaceTypes(newSelectedTypes);
+    filterPlacesByType(nearbyPlaces, newSelectedTypes);
   };
 
   // Load reviews data
@@ -250,123 +350,287 @@ export const TouristDashboard: React.FC = () => {
     }
   };
 
-  // Handle SOS/Panic button
+  // ==== ENHANCED EMERGENCY RESPONSE SYSTEM ====
+
+  // Handle SOS/Emergency Alert with full response system
   const handleSOSPress = async () => {
     setSosActive(true);
     
     try {
-      // Get current location
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        });
-      });
-
-      const location = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude
-      };
-
-      console.log('🚨 SOS EMERGENCY ALERT - Location:', location);
-      
-      // Send SOS alert to real database
-      try {
-        const sosAlert = await apiService.triggerSOS(location);
-        console.log('✅ SOS Alert sent to database:', sosAlert);
-        
-        // Show success notification
-        alert('🆘 Emergency SOS alert sent! Help is on the way. Emergency services have been notified with your location.');
-        
-        // Vibrate device if supported
-        if (navigator.vibrate) {
-          navigator.vibrate([200, 100, 200, 100, 200]);
-        }
-        
-        // Update local state
-        const address = await apiService.reverseGeocode(location.latitude, location.longitude).catch(() => undefined);
-        const locationObj: ApiLocation = {
-          id: Date.now().toString(),
-          touristId: user?.id || '',
-          latitude: location.latitude,
-          longitude: location.longitude,
-          accuracy: 10,
-          timestamp: new Date().toISOString(),
-          address
-        };
-        setCurrentLocation(locationObj);
-        
-        // Auto-turn off SOS after 5 minutes
-        setTimeout(() => {
-          setSosActive(false);
-        }, 300000);
-        
-      } catch (sosError) {
-        console.error('❌ Failed to send SOS alert:', sosError);
-        alert('⚠️ Failed to send SOS alert to emergency services. Please try calling emergency services directly.');
+      // Check authentication first
+      if (!user?.id) {
+        alert('You must be logged in to send emergency alerts');
         setSosActive(false);
+        return;
       }
+
+      console.log('🚨 AUTHENTICATED USER EMERGENCY ALERT:', user.firstName, user.lastName);
+      
+      // Get current location with shorter timeout and fallback
+      let location: { latitude: number; longitude: number; accuracy?: number };
+      
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 5000, // Reduced timeout to 5 seconds
+            maximumAge: 30000 // Allow cached location up to 30 seconds old
+          });
+        });
+
+        location = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        };
+        
+        console.log('🚨 ENHANCED SOS EMERGENCY ALERT - Current Location:', location);
+      } catch (locationError) {
+        console.warn('⚠️ Current location failed, using last known location:', locationError);
+        
+        // Fallback to currentLocation state if available
+        if (currentLocation) {
+          location = {
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude,
+            accuracy: 50 // Estimate accuracy for cached location
+          };
+          console.log('🚨 ENHANCED SOS EMERGENCY ALERT - Cached Location:', location);
+        } else {
+          // Last resort: try low-accuracy location
+          try {
+            const lowAccuracyPosition = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: false,
+                timeout: 3000,
+                maximumAge: 60000
+              });
+            });
+            
+            location = {
+              latitude: lowAccuracyPosition.coords.latitude,
+              longitude: lowAccuracyPosition.coords.longitude,
+              accuracy: lowAccuracyPosition.coords.accuracy
+            };
+            console.log('🚨 ENHANCED SOS EMERGENCY ALERT - Low Accuracy Location:', location);
+          } catch (finalError) {
+            // Use default location (emergency services can help locate)
+            location = {
+              latitude: 0,
+              longitude: 0,
+              accuracy: 999999 // Very high number to indicate no GPS
+            };
+            console.log('🚨 ENHANCED SOS EMERGENCY ALERT - No Location Available');
+          }
+        }
+      }
+      
+      // Trigger comprehensive emergency response
+      let emergencyAlert;
+      try {
+        // Try enhanced emergency system first
+        emergencyAlert = await emergencyResponseService.triggerEmergencyAlert({
+          type: 'SOS',
+          severity: 'CRITICAL',
+          message: 'Emergency SOS alert - Immediate assistance required',
+          location
+        });
+        
+        console.log('✅ Enhanced emergency response system activated:', emergencyAlert);
+      } catch (enhancedError) {
+        console.warn('⚠️ Enhanced emergency system failed, using fallback:', enhancedError);
+        
+        // Fallback to legacy SOS system
+        try {
+          // Ensure user is available for legacy system
+          if (!user?.id) {
+            throw new Error('User authentication required for emergency alert');
+          }
+
+          const legacyAlert = await apiService.triggerSOS({
+            latitude: location.latitude,
+            longitude: location.longitude
+          });
+          
+          // Convert legacy alert to emergency alert format
+          emergencyAlert = {
+            id: legacyAlert.id,
+            touristId: legacyAlert.touristId,
+            type: 'SOS' as const,
+            severity: 'CRITICAL' as const,
+            status: 'ACTIVE' as const,
+            message: legacyAlert.message,
+            location: {
+              latitude: legacyAlert.latitude,
+              longitude: legacyAlert.longitude,
+              accuracy: location.accuracy
+            },
+            tourist: {
+              id: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              phone: user.phoneNumber,
+              email: user.email
+            },
+            createdAt: legacyAlert.createdAt
+          };
+          
+          console.log('✅ Legacy emergency system activated:', emergencyAlert);
+        } catch (legacyError) {
+          console.error('❌ Both emergency systems failed:', legacyError);
+          throw new Error('Emergency system unavailable');
+        }
+      }
+      
+      // Update local state
+      setLastEmergencyAlert(emergencyAlert);
+      setEmergencyLocationTracking(true);
+      setActiveTab('emergency'); // Switch to emergency tab
+      
+      // Show comprehensive success notification
+      alert(`🆘 EMERGENCY SYSTEM ACTIVATED!
+      
+✅ Emergency services notified
+✅ Location shared with authorities
+✅ Emergency contacts alerted
+✅ Real-time tracking enabled
+✅ Admin dashboard updated
+      
+Help is on the way. Stay calm and keep your phone with you.`);
+      
+      // Enhanced device feedback
+      if (navigator.vibrate) {
+        navigator.vibrate([500, 200, 500, 200, 500]); // Stronger vibration pattern
+      }
+      
+      // Auto-turn off SOS after 10 minutes
+      setTimeout(() => {
+        setSosActive(false);
+        setEmergencyLocationTracking(false);
+      }, 600000);
       
     } catch (locationError) {
       console.error('❌ Failed to get location:', locationError);
       
-      // Fallback: Send SOS without location
+      // Fallback: Send SOS without precise location
       try {
-        const sosAlert = await apiService.triggerSOS();
-        console.log('✅ SOS Alert sent without location:', sosAlert);
-        alert('🆘 Emergency SOS alert sent! Location could not be determined, but emergency services have been notified.');
+        const emergencyAlert = await emergencyResponseService.triggerEmergencyAlert({
+          type: 'SOS',
+          severity: 'HIGH',
+          message: 'Emergency SOS alert - Location unavailable',
+          location: currentLocation ? {
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude
+          } : { latitude: 0, longitude: 0 }
+        });
         
-        // Auto-turn off SOS after 5 minutes
-        setTimeout(() => {
-          setSosActive(false);
-        }, 300000);
+        console.log('✅ Emergency alert sent without location:', emergencyAlert);
+        alert('🆘 Emergency SOS alert sent! Location could not be determined, but emergency services have been notified with your last known location.');
+        
+        setLastEmergencyAlert(emergencyAlert);
+        setActiveTab('emergency');
         
       } catch (sosError) {
-        console.error('❌ Failed to send emergency alert. Please call emergency services directly.');
+        console.error('❌ Emergency system failure:', sosError);
+        alert('⚠️ Emergency system failed. Please call emergency services directly.');
         setSosActive(false);
       }
     }
   };
 
-  // Handle Panic button
-  const handlePanicPress = async () => {
+  // Handle specific emergency types
+  const handleEmergencyType = async (type: EmergencyAlert['type'], message: string) => {
     try {
-      // Get current location
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
-        });
+      if (!currentLocation) {
+        alert('Please wait for location to be detected before triggering emergency alert.');
+        return;
+      }
+
+      const emergencyAlert = await emergencyResponseService.triggerEmergencyAlert({
+        type,
+        severity: type === 'MEDICAL' ? 'CRITICAL' : 'HIGH',
+        message,
+        location: {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          accuracy: 10
+        }
       });
 
-      const location = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude
-      };
-
-      const panicAlert = await apiService.triggerPanic('Panic button pressed - Need assistance', location);
-      console.log('✅ Panic Alert sent:', panicAlert);
+      setLastEmergencyAlert(emergencyAlert);
+      setActiveTab('emergency');
       
-      alert('⚠️ Panic alert sent! Authorities have been notified.');
-      
-      // Vibrate if supported
-      if (navigator.vibrate) {
-        navigator.vibrate([100, 50, 100]);
-      }
+      alert(`${type} alert sent! Emergency response system activated.`);
       
     } catch (error) {
-      console.error('❌ Failed to send panic alert:', error);
-      
-      // Fallback without location
-      try {
-        const panicAlert = await apiService.triggerPanic('Panic button pressed - Need assistance');
-        alert('⚠️ Panic alert sent! Location could not be determined.');
-      } catch (fallbackError) {
-        alert('⚠️ Failed to send panic alert. Please try again.');
-      }
+      console.error('Emergency alert failed:', error);
+      alert('Failed to send emergency alert. Please try again or call emergency services directly.');
     }
+  };
+
+  // Initiate emergency call with admin
+  const initiateEmergencyCall = async () => {
+    try {
+      setEmergencyCallInProgress(true);
+      
+      const callRequest: EmergencyCallRequest = {
+        touristId: user?.id || '',
+        adminId: 'emergency-admin', // Will be assigned by backend
+        reason: 'EMERGENCY_RESPONSE',
+        priority: 'CRITICAL',
+        alertId: lastEmergencyAlert?.id
+      };
+
+      const callSession = await emergencyResponseService.initiateEmergencyCall(callRequest);
+      setEmergencyCallSession(callSession);
+      
+      console.log('📞 Emergency call initiated:', callSession);
+      
+    } catch (error) {
+      console.error('❌ Failed to initiate emergency call:', error);
+      setEmergencyCallInProgress(false);
+      alert('Failed to initiate emergency call. Please try calling emergency services directly.');
+    }
+  };
+
+  // End emergency call
+  const endEmergencyCall = async () => {
+    try {
+      if (emergencyCallSession) {
+        await emergencyResponseService.endEmergencyCall(emergencyCallSession.sid);
+        setEmergencyCallSession(null);
+        setEmergencyCallInProgress(false);
+        console.log('📞 Emergency call ended');
+      }
+    } catch (error) {
+      console.error('❌ Failed to end emergency call:', error);
+    }
+  };
+
+  // Acknowledge emergency alert (when resolved)
+  const acknowledgeEmergencyAlert = async (alertId: string) => {
+    try {
+      await emergencyResponseService.acknowledgeEmergencyAlert(alertId, user?.id || '');
+      
+      // Update local state
+      setActiveEmergencyAlerts(prev => 
+        prev.map(alert => 
+          alert.id === alertId 
+            ? { ...alert, status: 'ACKNOWLEDGED', acknowledgedAt: new Date().toISOString() }
+            : alert
+        )
+      );
+      
+      console.log('✅ Emergency alert acknowledged:', alertId);
+      
+    } catch (error) {
+      console.error('❌ Failed to acknowledge alert:', error);
+    }
+  };
+
+  // Handle Panic button (legacy support)
+  const handlePanicPress = async () => {
+    await handleEmergencyType('PANIC', 'Panic button pressed - Need immediate assistance');
   };
 
   const handleAlertCreated = (alert: Alert) => {
@@ -1290,8 +1554,9 @@ export const TouristDashboard: React.FC = () => {
             Safety
           </button>
           <button 
-            className={`tab-btn ${activeTab === 'map' ? 'active' : ''}`}
+            className={`tab-btn map-tab ${activeTab === 'map' ? 'active' : ''}`}
             onClick={() => setActiveTab('map')}
+            title="Interactive Map with Safety Zones"
           >
             <span className="tab-icon">🗺️</span>
             Map
@@ -1408,146 +1673,280 @@ export const TouristDashboard: React.FC = () => {
         {activeTab === 'map' && (
           <div className="map-tab">
             <div className="map-dashboard">
+              {/* Place Type Filters */}
               <div className="map-controls">
-                <div className="map-filters">
-                  <button 
-                    className={`filter-btn ${mapType === 'safety' ? 'active' : ''}`}
-                    onClick={() => setMapType('safety')}
-                  >
-                    🛡️ Safe Zones
-                  </button>
-                  <button 
-                    className={`filter-btn ${mapType === 'emergency' ? 'active' : ''}`}
-                    onClick={() => setMapType('emergency')}
-                  >
-                    🚨 Emergency
-                  </button>
-                  <button 
-                    className={`filter-btn ${mapType === 'hotels' ? 'active' : ''}`}
-                    onClick={() => setMapType('hotels')}
-                  >
-                    🏨 Hotels
-                  </button>
-                  <button 
-                    className={`filter-btn ${mapType === 'restaurants' ? 'active' : ''}`}
-                    onClick={() => setMapType('restaurants')}
-                  >
-                    🍽️ Restaurants
-                  </button>
-                  <button 
-                    className={`filter-btn ${mapType === 'shopping' ? 'active' : ''}`}
-                    onClick={() => setMapType('shopping')}
-                  >
-                    🛍️ Shopping
-                  </button>
+                <h3>🗺️ Interactive Safety Map</h3>
+                <div className="place-type-filters">
+                  <h4>Filter by Place Type:</h4>
+                  <div className="filter-buttons">
+                    <button 
+                      className={`filter-btn ${selectedPlaceTypes.includes('hospital') ? 'active' : ''}`}
+                      onClick={() => togglePlaceType('hospital')}
+                    >
+                      🏥 Hospitals ({nearbyPlaces.filter(p => p.type === 'hospital').length})
+                    </button>
+                    <button 
+                      className={`filter-btn ${selectedPlaceTypes.includes('police') ? 'active' : ''}`}
+                      onClick={() => togglePlaceType('police')}
+                    >
+                      🚔 Police ({nearbyPlaces.filter(p => p.type === 'police').length})
+                    </button>
+                    <button 
+                      className={`filter-btn ${selectedPlaceTypes.includes('restaurant') ? 'active' : ''}`}
+                      onClick={() => togglePlaceType('restaurant')}
+                    >
+                      🍽️ Restaurants ({nearbyPlaces.filter(p => p.type === 'restaurant').length})
+                    </button>
+                    <button 
+                      className={`filter-btn ${selectedPlaceTypes.includes('hotel') ? 'active' : ''}`}
+                      onClick={() => togglePlaceType('hotel')}
+                    >
+                      🏨 Hotels ({nearbyPlaces.filter(p => p.type === 'hotel').length})
+                    </button>
+                    <button 
+                      className={`filter-btn ${selectedPlaceTypes.includes('tourist_spot') ? 'active' : ''}`}
+                      onClick={() => togglePlaceType('tourist_spot')}
+                    >
+                      📍 Tourist Spots ({nearbyPlaces.filter(p => p.type === 'tourist_spot').length})
+                    </button>
+                  </div>
+                  <div className="filter-summary">
+                    Showing {filteredPlaces.length} of {nearbyPlaces.length} places
+                    {selectedPlaceTypes.length < 5 && (
+                      <button 
+                        className="show-all-btn"
+                        onClick={() => {
+                          const allTypes = ['hospital', 'police', 'restaurant', 'hotel', 'tourist_spot'];
+                          setSelectedPlaceTypes(allTypes);
+                          filterPlacesByType(nearbyPlaces, allTypes);
+                        }}
+                      >
+                        Show All
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
               
-              <div className="map-container">
-                {currentLocation ? (
-                  <GoogleMap
-                    center={{
-                      lat: currentLocation.latitude!,
-                      lng: currentLocation.longitude!
-                    }}
-                    zoom={15}
-                    markers={getMapMarkers()}
-                    onNavigate={handleNavigate}
-                    className="w-full h-96"
-                    showRealPlaces={true}
-                    showSafetyZones={true}
-                  />
-                ) : (
-                  <div className="map-placeholder">
-                    <p>📍 Waiting for location data...</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="map-sidebar">
-                <div className="map-legend">
-                  <h4>🗺️ Map Legend</h4>
-                  <div className="legend-items">
-                    <div className="legend-item">
-                      <span className="legend-color safe"></span>
-                      Safe Zones
-                    </div>
-                    <div className="legend-item">
-                      <span className="legend-color caution"></span>
-                      Caution Areas
-                    </div>
-                    <div className="legend-item">
-                      <span className="legend-color danger"></span>
-                      High Risk Areas
-                    </div>
-                    <div className="legend-item">
-                      <span className="legend-color police"></span>
-                      Police Stations
-                    </div>
-                    <div className="legend-item">
-                      <span className="legend-color hospital"></span>
-                      Hospitals
-                    </div>
-                  </div>
-                </div>
-
-                <div className="nearby-places">
-                  <h4>📍 Nearby Safe Places</h4>
-                  {placesLoading ? (
-                    <div className="places-loading">
-                      <div className="loading-spinner"></div>
-                      <span>Finding nearby places...</span>
-                    </div>
+              <div className="map-content-container">
+                {/* Map Container */}
+                <div className="map-container" style={{ width: '100%', height: '500px', minHeight: '500px' }}>
+                  {currentLocation ? (
+                    <LeafletTouristMap
+                      center={{
+                        lat: currentLocation.latitude!,
+                        lng: currentLocation.longitude!
+                      }}
+                      zoom={15}
+                      places={filteredPlaces}
+                      safetyZones={[
+                        {
+                          id: 'safe_zone_1',
+                          name: 'Tourist Safe Zone',
+                          center: { lat: currentLocation.latitude!, lng: currentLocation.longitude! },
+                          radius: 500,
+                          level: 'safe',
+                          description: 'Well-patrolled tourist area with good infrastructure'
+                        },
+                        {
+                          id: 'caution_zone_1',
+                          name: 'Busy Commercial Area',
+                          center: { lat: currentLocation.latitude! + 0.003, lng: currentLocation.longitude! + 0.002 },
+                          radius: 300,
+                          level: 'caution',
+                          description: 'Crowded area - keep belongings secure'
+                        }
+                      ]}
+                      onNavigate={handleNavigate}
+                      className="tourist-safety-map"
+                    />
                   ) : (
-                    <div className="places-list">
-                      {nearbyPlaces.length > 0 ? (
-                        nearbyPlaces.map(place => {
-                          const getPlaceIcon = (type: string) => {
-                            switch (type) {
-                              case 'hospital': return '🏥';
-                              case 'police': return '🚔';
-                              case 'restaurant': return '🍽️';
-                              case 'hotel': return '🏨';
-                              case 'tourist_spot': return '📍';
-                              default: return '📍';
-                            }
-                          };
-
-                          const formatDistance = (distance: number) => {
-                            if (distance < 1000) {
-                              return `${Math.round(distance)}m`;
-                            } else {
-                              return `${(distance / 1000).toFixed(1)}km`;
-                            }
-                          };
-
-                          return (
-                            <div key={place.id} className="place-item">
-                              <span>
-                                {getPlaceIcon(place.type)} {place.name} - {formatDistance(place.distance)}
-                                {place.rating && ` ⭐ ${place.rating}`}
-                                {place.isOpen !== undefined && (
-                                  <span className={`status ${place.isOpen ? 'open' : 'closed'}`}>
-                                    {place.isOpen ? ' 🟢' : ' 🔴'}
-                                  </span>
-                                )}
-                              </span>
-                              <button 
-                                className="navigate-btn"
-                                onClick={() => handleNavigate(place.position)}
-                              >
-                                Navigate
-                              </button>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="no-places">
-                          <span>No nearby places found</span>
-                        </div>
-                      )}
+                    <div className="map-placeholder" style={{ width: '100%', height: '500px', backgroundColor: '#f5f5f5', border: '1px solid #ddd', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div className="loading-spinner"></div>
+                      <p>📍 Loading your location...</p>
                     </div>
                   )}
+                </div>
+
+                {/* Map Sidebar with Legend and Places */}
+                <div className="map-sidebar">
+                  {/* Comprehensive Map Legend */}
+                  <div className="map-legend">
+                    <h4>🗺️ Map Legend</h4>
+                    
+                    {/* Safety Zones */}
+                    <div className="legend-section">
+                      <h5>Safety Zones</h5>
+                      <div className="legend-items">
+                        <div className="legend-item">
+                          <span className="legend-marker safe-zone">🟢</span>
+                          <span className="legend-text">Safe Zones</span>
+                        </div>
+                        <div className="legend-item">
+                          <span className="legend-marker caution-zone">🟡</span>
+                          <span className="legend-text">Caution Areas</span>
+                        </div>
+                        <div className="legend-item">
+                          <span className="legend-marker danger-zone">🔴</span>
+                          <span className="legend-text">High Risk Areas</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Place Types */}
+                    <div className="legend-section">
+                      <h5>Place Types</h5>
+                      <div className="legend-items">
+                        <div className="legend-item">
+                          <span className="legend-marker hospital">🏥</span>
+                          <span className="legend-text">Hospitals & Medical</span>
+                        </div>
+                        <div className="legend-item">
+                          <span className="legend-marker police">🚔</span>
+                          <span className="legend-text">Police Stations</span>
+                        </div>
+                        <div className="legend-item">
+                          <span className="legend-marker restaurant">🍽️</span>
+                          <span className="legend-text">Restaurants & Food</span>
+                        </div>
+                        <div className="legend-item">
+                          <span className="legend-marker hotel">🏨</span>
+                          <span className="legend-text">Hotels & Lodging</span>
+                        </div>
+                        <div className="legend-item">
+                          <span className="legend-marker tourist-spot">📍</span>
+                          <span className="legend-text">Tourist Attractions</span>
+                        </div>
+                        <div className="legend-item">
+                          <span className="legend-marker user-location">🔵</span>
+                          <span className="legend-text">Your Location</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Status Indicators */}
+                    <div className="legend-section">
+                      <h5>Status Indicators</h5>
+                      <div className="legend-items">
+                        <div className="legend-item">
+                          <span className="legend-status open">🟢</span>
+                          <span className="legend-text">Open Now</span>
+                        </div>
+                        <div className="legend-item">
+                          <span className="legend-status closed">🔴</span>
+                          <span className="legend-text">Closed</span>
+                        </div>
+                        <div className="legend-item">
+                          <span className="legend-status unknown">⚪</span>
+                          <span className="legend-text">Status Unknown</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filtered Nearby Places */}
+                  <div className="nearby-places">
+                    <h4>📍 Nearby Places ({filteredPlaces.length})</h4>
+                    {placesLoading ? (
+                      <div className="places-loading">
+                        <div className="loading-spinner"></div>
+                        <span>Finding nearby places...</span>
+                      </div>
+                    ) : (
+                      <div className="places-list">
+                        {filteredPlaces.length > 0 ? (
+                          filteredPlaces.map(place => {
+                            const getPlaceIcon = (type: string) => {
+                              switch (type) {
+                                case 'hospital': return '🏥';
+                                case 'police': return '🚔';
+                                case 'restaurant': return '🍽️';
+                                case 'hotel': return '🏨';
+                                case 'tourist_spot': return '📍';
+                                default: return '📍';
+                              }
+                            };
+
+                            const formatDistance = (distance: number) => {
+                              if (distance < 1000) {
+                                return `${Math.round(distance)}m`;
+                              } else {
+                                return `${(distance / 1000).toFixed(1)}km`;
+                              }
+                            };
+
+                            const getSafetyColor = (level: string) => {
+                              switch (level) {
+                                case 'safe': return '#22C55E';
+                                case 'caution': return '#F59E0B';
+                                case 'danger': return '#EF4444';
+                                default: return '#6B7280';
+                              }
+                            };
+
+                            return (
+                              <div key={place.id} className="place-item">
+                                <div className="place-header">
+                                  <span className="place-icon">{getPlaceIcon(place.type)}</span>
+                                  <div className="place-info">
+                                    <h5 className="place-name">{place.name}</h5>
+                                    <p className="place-address">{place.address}</p>
+                                  </div>
+                                </div>
+                                <div className="place-details">
+                                  <div className="place-meta">
+                                    <span className="distance">📏 {formatDistance(place.distance)}</span>
+                                    {place.rating && (
+                                      <span className="rating">⭐ {place.rating}</span>
+                                    )}
+                                    {place.isOpen !== undefined && (
+                                      <span className={`status ${place.isOpen ? 'open' : 'closed'}`}>
+                                        {place.isOpen ? '🟢 Open' : '🔴 Closed'}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="safety-indicator" style={{backgroundColor: getSafetyColor(place.safetyLevel)}}>
+                                    {place.safetyLevel === 'safe' ? '✅ Safe' : 
+                                     place.safetyLevel === 'caution' ? '⚠️ Caution' : '🚨 Risk'}
+                                  </div>
+                                </div>
+                                <div className="place-actions">
+                                  <button 
+                                    className="navigate-btn"
+                                    onClick={() => handleNavigate(place.position)}
+                                  >
+                                    🧭 Navigate
+                                  </button>
+                                  {place.phone && (
+                                    <button 
+                                      className="call-btn"
+                                      onClick={() => window.open(`tel:${place.phone}`)}
+                                    >
+                                      📞 Call
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="no-places">
+                            <span className="no-places-icon">🔍</span>
+                            <span>No places found for selected filters</span>
+                            <button 
+                              className="reset-filters-btn"
+                              onClick={() => {
+                                setSelectedPlaceTypes(['hospital', 'police', 'restaurant']);
+                                filterPlacesByType(nearbyPlaces, ['hospital', 'police', 'restaurant']);
+                              }}
+                            >
+                              Reset Filters
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1616,47 +2015,204 @@ export const TouristDashboard: React.FC = () => {
         {activeTab === 'emergency' && (
           <div className="emergency-tab">
             <div className="emergency-dashboard">
+              {/* Emergency Response System Header */}
               <div className="emergency-header">
-                <h3>🚨 Emergency Services</h3>
+                <h3>🚨 Emergency Response System</h3>
                 <div className="emergency-status">
-                  <span className="status-indicator green"></span>
-                  All services operational
+                  <span className={`status-indicator ${sosActive ? 'critical' : 'green'}`}></span>
+                  {sosActive ? 'EMERGENCY ACTIVE' : 'All systems operational'}
+                  {emergencyNotifications > 0 && (
+                    <span className="notification-badge">{emergencyNotifications}</span>
+                  )}
                 </div>
               </div>
 
-              <div className="emergency-grid">
-                <div className="emergency-card">
-                  <h4>🚔 Police</h4>
-                  <p>Emergency: 100</p>
-                  <button className="emergency-call-btn">Call Now</button>
-                </div>
-                <div className="emergency-card">
-                  <h4>🚑 Medical</h4>
-                  <p>Emergency: 102</p>
-                  <button className="emergency-call-btn">Call Now</button>
-                </div>
-                <div className="emergency-card">
-                  <h4>🚒 Fire</h4>
-                  <p>Emergency: 101</p>
-                  <button className="emergency-call-btn">Call Now</button>
-                </div>
-                <div className="emergency-card">
-                  <h4>🆘 Tourist Helpline</h4>
-                  <p>24/7: 1363</p>
-                  <button className="emergency-call-btn">Call Now</button>
-                </div>
-              </div>
-
-              <div className="emergency-contacts">
-                <h4>📞 Emergency Contacts</h4>
-                <div className="contacts-list">
-                  {emergencyContacts.map((contact, index) => (
-                    <div key={index} className="contact-item">
-                      <span className="contact-name">{contact.name}</span>
-                      <span className="contact-number">{contact.number}</span>
-                      <button className="contact-call-btn">Call</button>
+              {/* Active Emergency Alerts */}
+              {activeEmergencyAlerts.length > 0 && (
+                <div className="active-alerts-section">
+                  <h4>🚨 Active Emergency Alerts</h4>
+                  {activeEmergencyAlerts.slice(0, 3).map((alert) => (
+                    <div key={alert.id} className={`emergency-alert-card ${alert.severity.toLowerCase()}`}>
+                      <div className="alert-header">
+                        <span className="alert-type">{alert.type}</span>
+                        <span className="alert-severity">{alert.severity}</span>
+                        <span className="alert-status">{alert.status}</span>
+                      </div>
+                      <p className="alert-message">{alert.message}</p>
+                      <div className="alert-meta">
+                        <span className="alert-time">
+                          {new Date(alert.createdAt).toLocaleString()}
+                        </span>
+                        {alert.firNumber && (
+                          <span className="fir-number">FIR: {alert.firNumber}</span>
+                        )}
+                      </div>
+                      {alert.status === 'ACTIVE' && (
+                        <button 
+                          className="acknowledge-btn"
+                          onClick={() => acknowledgeEmergencyAlert(alert.id)}
+                        >
+                          ✓ Acknowledge
+                        </button>
+                      )}
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Emergency Actions */}
+              <div className="emergency-actions">
+                <h4>🚨 Emergency Actions</h4>
+                <div className="emergency-buttons-grid">
+                  <button 
+                    className={`emergency-btn sos ${sosActive ? 'active' : ''}`}
+                    onClick={handleSOSPress}
+                    disabled={sosActive}
+                  >
+                    🆘 {sosActive ? 'SOS ACTIVE' : 'EMERGENCY SOS'}
+                  </button>
+                  
+                  <button 
+                    className="emergency-btn medical"
+                    onClick={() => handleEmergencyType('MEDICAL', 'Medical emergency - Need immediate medical assistance')}
+                  >
+                    🏥 Medical Emergency
+                  </button>
+                  
+                  <button 
+                    className="emergency-btn police"
+                    onClick={() => handleEmergencyType('CRIME', 'Crime in progress - Need police assistance')}
+                  >
+                    🚔 Police Help
+                  </button>
+                  
+                  <button 
+                    className="emergency-btn panic"
+                    onClick={handlePanicPress}
+                  >
+                    😰 Panic Alert
+                  </button>
+                  
+                  <button 
+                    className="emergency-btn accident"
+                    onClick={() => handleEmergencyType('ACCIDENT', 'Accident occurred - Need assistance')}
+                  >
+                    🚗 Accident
+                  </button>
+                  
+                  <button 
+                    className="emergency-btn disaster"
+                    onClick={() => handleEmergencyType('NATURAL_DISASTER', 'Natural disaster - Need evacuation assistance')}
+                  >
+                    🌪️ Disaster
+                  </button>
+                </div>
+              </div>
+
+              {/* Emergency Communication */}
+              <div className="emergency-communication">
+                <h4>📞 Emergency Communication</h4>
+                
+                {emergencyCallSession ? (
+                  <div className="active-call">
+                    <div className="call-status">
+                      <span className="call-indicator"></span>
+                      Call Status: {emergencyCallSession.status.toUpperCase()}
+                    </div>
+                    <div className="call-controls">
+                      <button className="end-call-btn" onClick={endEmergencyCall}>
+                        📞 End Call
+                      </button>
+                    </div>
+                    {emergencyCallSession.duration && (
+                      <span className="call-duration">Duration: {emergencyCallSession.duration}s</span>
+                    )}
+                  </div>
+                ) : (
+                  <button 
+                    className="emergency-call-btn"
+                    onClick={initiateEmergencyCall}
+                    disabled={!lastEmergencyAlert || emergencyCallInProgress}
+                  >
+                    📞 {emergencyCallInProgress ? 'Connecting...' : 'Call Emergency Admin'}
+                  </button>
+                )}
+              </div>
+
+              {/* Location Tracking Status */}
+              {emergencyLocationTracking && (
+                <div className="location-tracking">
+                  <h4>📍 Location Tracking</h4>
+                  <div className="tracking-status">
+                    <span className="tracking-indicator"></span>
+                    Real-time location sharing active
+                  </div>
+                  <div className="current-location">
+                    {currentLocation && (
+                      <p>
+                        📍 Current: {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
+                        {currentLocation.address && <br />}{currentLocation.address}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Traditional Emergency Services */}
+              <div className="emergency-services">
+                <h4>📞 Emergency Services</h4>
+                <div className="emergency-grid">
+                  <div className="emergency-card">
+                    <h5>🚔 Police</h5>
+                    <p>Emergency: 100</p>
+                    <button className="emergency-call-btn" onClick={() => window.open('tel:100')}>
+                      Call Now
+                    </button>
+                  </div>
+                  <div className="emergency-card">
+                    <h5>🚑 Medical</h5>
+                    <p>Emergency: 102</p>
+                    <button className="emergency-call-btn" onClick={() => window.open('tel:102')}>
+                      Call Now
+                    </button>
+                  </div>
+                  <div className="emergency-card">
+                    <h5>🚒 Fire</h5>
+                    <p>Emergency: 101</p>
+                    <button className="emergency-call-btn" onClick={() => window.open('tel:101')}>
+                      Call Now
+                    </button>
+                  </div>
+                  <div className="emergency-card">
+                    <h5>🆘 Tourist Helpline</h5>
+                    <p>24/7: 1363</p>
+                    <button className="emergency-call-btn" onClick={() => window.open('tel:1363')}>
+                      Call Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Emergency Contacts */}
+              <div className="emergency-contacts">
+                <h4>� Personal Emergency Contacts</h4>
+                <div className="contacts-list">
+                  {emergencyContacts.length > 0 ? (
+                    emergencyContacts.map((contact, index) => (
+                      <div key={index} className="contact-item">
+                        <span className="contact-name">{contact.name}</span>
+                        <span className="contact-number">{contact.number}</span>
+                        <button 
+                          className="contact-call-btn"
+                          onClick={() => window.open(`tel:${contact.number}`)}
+                        >
+                          Call
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="no-contacts">No emergency contacts configured. Add contacts in settings.</p>
+                  )}
                 </div>
               </div>
             </div>

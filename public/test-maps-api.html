@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Maps API Test</title>
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+            background-color: #f0f0f0;
+        }
+        .test-info {
+            padding: 20px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Google Maps API Test</h1>
+    
+    <div class="test-info">
+        <h3>Testing API Key: AIzaSyDn5H4CtugS827eG6bCYwIhdY2pRQ5rMWA</h3>
+        <p>If the map loads below, the API key is working correctly.</p>
+        <p>If you see a gray area or error messages, there might be an issue with:</p>
+        <ul>
+            <li>API key validity</li>
+            <li>Maps JavaScript API not enabled</li>
+            <li>Billing not set up</li>
+            <li>Domain restrictions</li>
+        </ul>
+    </div>
+    
+    <div id="map"></div>
+    
+    <div class="test-info">
+        <h3>Console Output:</h3>
+        <div id="console-output"></div>
+    </div>
+
+    <script>
+        // Console capture
+        const consoleOutput = document.getElementById('console-output');
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn
+        };
+        
+        function addToOutput(level, ...args) {
+            const div = document.createElement('div');
+            div.style.color = level === 'error' ? 'red' : level === 'warn' ? 'orange' : 'black';
+            div.textContent = `[${level.toUpperCase()}] ${args.join(' ')}`;
+            consoleOutput.appendChild(div);
+            originalConsole[level](...args);
+        }
+        
+        console.log = (...args) => addToOutput('log', ...args);
+        console.error = (...args) => addToOutput('error', ...args);
+        console.warn = (...args) => addToOutput('warn', ...args);
+
+        // Test function
+        function initMap() {
+            console.log('✅ Google Maps API loaded successfully!');
+            console.log('📍 Initializing map...');
+            
+            try {
+                const map = new google.maps.Map(document.getElementById("map"), {
+                    zoom: 15,
+                    center: { lat: 28.6139, lng: 77.2090 }, // Delhi coordinates
+                    mapTypeId: 'roadmap'
+                });
+                
+                // Add a marker
+                const marker = new google.maps.Marker({
+                    position: { lat: 28.6139, lng: 77.2090 },
+                    map: map,
+                    title: 'Test Location'
+                });
+                
+                console.log('✅ Map and marker created successfully!');
+                console.log('🗺️ Map object:', map);
+                console.log('📍 Marker object:', marker);
+                
+            } catch (error) {
+                console.error('❌ Error creating map:', error);
+            }
+        }
+        
+        // Error handler
+        function handleMapError() {
+            console.error('❌ Failed to load Google Maps API');
+            console.error('💡 Please check:');
+            console.error('   - API key is valid');
+            console.error('   - Maps JavaScript API is enabled');
+            console.error('   - Billing is set up');
+            console.error('   - No domain restrictions blocking this domain');
+        }
+        
+        // Start test
+        console.log('🌍 Starting Google Maps API test...');
+        console.log('🔑 API Key: AIzaSyDn5H4CtugS827eG6bCYwIhdY2pRQ5rMWA');
+        
+    </script>
+    
+    <!-- Load Google Maps API -->
+    <script async defer 
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDn5H4CtugS827eG6bCYwIhdY2pRQ5rMWA&callback=initMap&libraries=places,geometry"
+        onerror="handleMapError()">
+    </script>
+</body>
+</html>

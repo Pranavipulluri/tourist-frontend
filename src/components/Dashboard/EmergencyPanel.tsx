@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Location as ApiLocation, apiService } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { Alert, Location as ApiLocation } from '../../services/api';
+import { emergencyResponseService } from '../../services/emergencyResponse';
 
 interface EmergencyPanelProps {
   currentLocation: ApiLocation | null;
@@ -10,6 +12,7 @@ export const EmergencyPanel: React.FC<EmergencyPanelProps> = ({
   currentLocation, 
   onAlertCreated 
 }) => {
+  const { user } = useAuth();
   const [isSOSActive, setIsSOSActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -27,14 +30,46 @@ export const EmergencyPanel: React.FC<EmergencyPanelProps> = ({
   const handleSOSPress = async () => {
     if (loading) return;
 
+    if (!user) {
+      alert('You must be logged in to send an SOS alert');
+      return;
+    }
+
+    if (!currentLocation) {
+      alert('Location not available. Please wait for GPS to load.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const location = currentLocation ? {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-      } : undefined;
+      const alertData = {
+        type: 'SOS' as const,
+        message: 'Emergency SOS Alert - Immediate assistance needed',
+        location: {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+        },
+        severity: 'CRITICAL' as const
+      };
 
-      const alert = await apiService.triggerSOS(location);
+      const emergencyAlert = await emergencyResponseService.triggerEmergencyAlert(alertData);
+      
+      // Convert EmergencyAlert to Alert format for compatibility
+      const alert: Alert = {
+        id: emergencyAlert.id,
+        touristId: emergencyAlert.touristId,
+        type: 'SOS',
+        severity: emergencyAlert.severity,
+        message: emergencyAlert.message,
+        status: emergencyAlert.status === 'DISPATCHED' ? 'ACTIVE' : emergencyAlert.status,
+        latitude: emergencyAlert.location.latitude,
+        longitude: emergencyAlert.location.longitude,
+        address: emergencyAlert.location.address,
+        createdAt: emergencyAlert.createdAt,
+        updatedAt: emergencyAlert.createdAt,
+        resolvedAt: emergencyAlert.resolvedAt
+      };
+
       setIsSOSActive(true);
       setCountdown(300); // 5 minutes
       onAlertCreated(alert);
@@ -55,9 +90,46 @@ export const EmergencyPanel: React.FC<EmergencyPanelProps> = ({
   const handlePanicPress = async () => {
     if (loading) return;
 
+    if (!user) {
+      alert('You must be logged in to send a panic alert');
+      return;
+    }
+
+    if (!currentLocation) {
+      alert('Location not available. Please wait for GPS to load.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const alert = await apiService.triggerPanic('Panic button pressed');
+      const alertData = {
+        type: 'PANIC' as const,
+        message: 'Panic Alert - Tourist in distress',
+        location: {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+        },
+        severity: 'HIGH' as const
+      };
+
+      const emergencyAlert = await emergencyResponseService.triggerEmergencyAlert(alertData);
+      
+      // Convert EmergencyAlert to Alert format for compatibility
+      const alert: Alert = {
+        id: emergencyAlert.id,
+        touristId: emergencyAlert.touristId,
+        type: 'PANIC',
+        severity: emergencyAlert.severity,
+        message: emergencyAlert.message,
+        status: emergencyAlert.status === 'DISPATCHED' ? 'ACTIVE' : emergencyAlert.status,
+        latitude: emergencyAlert.location.latitude,
+        longitude: emergencyAlert.location.longitude,
+        address: emergencyAlert.location.address,
+        createdAt: emergencyAlert.createdAt,
+        updatedAt: emergencyAlert.createdAt,
+        resolvedAt: emergencyAlert.resolvedAt
+      };
+
       onAlertCreated(alert);
       
       // Vibrate if supported

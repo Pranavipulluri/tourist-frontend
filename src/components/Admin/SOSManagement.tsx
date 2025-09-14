@@ -300,7 +300,7 @@ export const SOSManagement: React.FC = () => {
                 <p className="alert-message">{alert.message}</p>
                 {alert.location && (
                   <div className="location-info">
-                    <p>📍 Location: {alert.location.latitude?.toFixed(6)}, {alert.location.longitude?.toFixed(6)}</p>
+                    <p>📍 Location: {Number(alert.location.latitude || 0).toFixed(6)}, {Number(alert.location.longitude || 0).toFixed(6)}</p>
                     {alert.location.address && <p>🏠 Address: {alert.location.address}</p>}
                   </div>
                 )}
@@ -400,7 +400,7 @@ export const SOSManagement: React.FC = () => {
                 {selectedAlert.location && (
                   <div className="detail-section">
                     <h4>Location Information</h4>
-                    <p><strong>Coordinates:</strong> {selectedAlert.location.latitude}, {selectedAlert.location.longitude}</p>
+                    <p><strong>Coordinates:</strong> {Number(selectedAlert.location.latitude || 0).toFixed(6)}, {Number(selectedAlert.location.longitude || 0).toFixed(6)}</p>
                     {selectedAlert.location.address && (
                       <p><strong>Address:</strong> {selectedAlert.location.address}</p>
                     )}

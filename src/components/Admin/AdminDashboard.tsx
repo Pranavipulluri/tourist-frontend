@@ -7,19 +7,21 @@ import { websocketService } from '../../services/websocket';
 import './Admin.css';
 import { AlertsHeatmap } from './AlertsHeatmap';
 import { AlertsManagement } from './AlertsManagement';
+import AnalyticsDashboard from './AnalyticsDashboard';
 import { BlockchainMonitor } from './BlockchainMonitor';
 import { ComplianceLogs } from './ComplianceLogs';
 import { DigitalIDManager } from './DigitalIDManager';
 import { FIRReview } from './FIRReview';
 import { LiveFeed } from './LiveFeed';
+import LiveMonitoring from './LiveMonitoring';
 import { PredictiveAnalytics } from './PredictiveAnalytics';
 import { ResourceManagement } from './ResourceManagement';
 import { SentimentAnalyzer } from './SentimentAnalyzer';
 import { SMSLogs } from './SMSLogs';
 import { SOSManagement } from './SOSManagement';
-import { StatisticsPanel } from './StatisticsPanel';
 import { TouristMonitoring } from './TouristMonitoring';
 import { TouristsList } from './TouristsList';
+import TouristTracking from './TouristTracking';
 import { ZoneManagement } from './ZoneManagement';
 
 export const AdminDashboard: React.FC = () => {
@@ -29,7 +31,7 @@ export const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'tourists' | 'alerts' | 'sos' | 'analytics' | 'zones' | 'monitoring' | 'sms' | 'fir' | 'compliance' | 'resources' | 'predictions' | 'sentiment' | 'blockchain' | 'digital-id'
+    'overview' | 'live-monitoring' | 'tracking' | 'tourists' | 'alerts' | 'sos' | 'analytics' | 'zones' | 'monitoring' | 'sms' | 'fir' | 'compliance' | 'resources' | 'predictions' | 'sentiment' | 'blockchain' | 'digital-id'
   >('overview');
 
   useEffect(() => {
@@ -128,6 +130,20 @@ export const AdminDashboard: React.FC = () => {
             Overview
           </button>
           <button
+            className={`tab-button ${activeTab === 'live-monitoring' ? 'active' : ''}`}
+            onClick={() => setActiveTab('live-monitoring')}
+          >
+            <span className="tab-icon">📡</span>
+            Live Monitoring
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'tracking' ? 'active' : ''}`}
+            onClick={() => setActiveTab('tracking')}
+          >
+            <span className="tab-icon">🎯</span>
+            Tourist Tracking
+          </button>
+          <button
             className={`tab-button ${activeTab === 'tourists' ? 'active' : ''}`}
             onClick={() => setActiveTab('tourists')}
           >
@@ -138,8 +154,8 @@ export const AdminDashboard: React.FC = () => {
             className={`tab-button ${activeTab === 'monitoring' ? 'active' : ''}`}
             onClick={() => setActiveTab('monitoring')}
           >
-            <span className="tab-icon">🎯</span>
-            Live Monitoring
+            <span className="tab-icon">👁️</span>
+            Basic Monitoring
           </button>
           <button
             className={`tab-button ${activeTab === 'alerts' ? 'active' : ''}`}
@@ -374,12 +390,14 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
 
+        {activeTab === 'live-monitoring' && <LiveMonitoring />}
+        {activeTab === 'tracking' && <TouristTracking />}
         {activeTab === 'tourists' && <TouristsList />}
         {activeTab === 'monitoring' && <TouristMonitoring />}
         {activeTab === 'alerts' && <AlertsManagement />}
         {activeTab === 'sos' && <SOSManagement />}
         {activeTab === 'zones' && <ZoneManagement />}
-        {activeTab === 'analytics' && <StatisticsPanel />}
+        {activeTab === 'analytics' && <AnalyticsDashboard />}
         {activeTab === 'resources' && <ResourceManagement />}
         {activeTab === 'sms' && <SMSLogs />}
         {activeTab === 'fir' && <FIRReview />}

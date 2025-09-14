@@ -48,6 +48,11 @@ export interface Alert {
   message: string;
   latitude: number;
   longitude: number;
+  location?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+  };
   address?: string;
   acknowledgedBy?: string;
   resolvedBy?: string;
@@ -256,7 +261,7 @@ class ApiService {
   getCurrentUser(): Tourist | null {
     // Return the current user from localStorage or state
     try {
-      const userStr = localStorage.getItem('currentUser');
+      const userStr = localStorage.getItem('user');
       return userStr ? JSON.parse(userStr) : null;
     } catch (error) {
       console.error('Failed to get current user:', error);
@@ -344,6 +349,28 @@ class ApiService {
     return response.data;
   }
 
+  // Enhanced emergency alert system
+  async triggerEnhancedEmergency(alertData: {
+    type: 'SOS' | 'PANIC' | 'MEDICAL' | 'ACCIDENT' | 'CRIME' | 'NATURAL_DISASTER';
+    severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    address?: string;
+    message: string;
+  }): Promise<any> {
+    const user = this.getCurrentUser();
+    if (!user?.id) {
+      throw new Error('User not authenticated');
+    }
+
+    const response = await this.api.post('/emergency/alert', {
+      ...alertData,
+      touristId: user.id
+    });
+    return response.data.alert;
+  }
+
   async triggerPanic(message?: string, location?: { latitude: number; longitude: number }): Promise<Alert> {
     const user = this.getCurrentUser();
     if (!user?.id) {
@@ -408,10 +435,29 @@ class ApiService {
   }
 
   async resolveAlert(alertId: string, resolvedBy: string): Promise<Alert> {
-    const response = await this.api.patch(`/alerts/${alertId}/resolve`, {
-      resolvedBy
-    });
+    const response = await this.api.put(`/alerts/${alertId}/resolve`, { resolvedBy });
     return response.data;
+  }
+
+  // Enhanced emergency system methods
+  async acknowledgeEmergencyAlert(alertId: string, adminId: string): Promise<void> {
+    await this.api.post(`/emergency/acknowledge/${alertId}`, { adminId });
+  }
+
+  async resolveEmergencyAlert(alertId: string, resolution: string, adminId: string): Promise<void> {
+    await this.api.post(`/emergency/resolve/${alertId}`, { resolution, adminId });
+  }
+
+  async getEmergencyAlerts(status?: string): Promise<any[]> {
+    try {
+      const response = await this.api.get('/emergency/alerts', { 
+        params: status ? { status } : {} 
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch emergency alerts:', error);
+      return [];
+    }
   }
 
   async getHeatmapData(filters?: any): Promise<any> {
@@ -735,7 +781,7 @@ class ApiService {
   }
 
   // Emergency Management API
-  async getEmergencyAlerts(touristId?: string): Promise<any[]> {
+  async getEmergencyAlertsAdmin(touristId?: string): Promise<any[]> {
     const url = touristId ? `/emergency/alerts/${touristId}` : '/emergency/alerts';
     const response = await this.api.get(url);
     return response.data;

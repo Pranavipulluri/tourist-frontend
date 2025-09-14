@@ -15,9 +15,10 @@ export interface NearbyPlace {
 export interface SafetyZone {
   id: string;
   name: string;
-  type: 'safe' | 'caution' | 'danger';
-  coordinates: Array<{ lat: number; lng: number }>;
-  description: string;
+  center: { lat: number; lng: number };
+  radius: number;
+  level: 'safe' | 'caution' | 'danger';
+  description?: string;
 }
 
 class PlacesService {
@@ -60,9 +61,13 @@ class PlacesService {
         type: 'establishment'
       };
 
-      this.placesService.nearbySearch(request, (results, status) => {
+      this.placesService.nearbySearch(request, async (results, status) => {
         if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
-          const places: NearbyPlace[] = results.slice(0, 20).map((place, index) => {
+          const places: NearbyPlace[] = [];
+          
+          // Process results with proper opening hours handling
+          for (let index = 0; index < Math.min(results.length, 20); index++) {
+            const place = results[index];
             const types = place.types || [];
             let placeType: NearbyPlace['type'] = 'tourist_spot';
             let safetyLevel: 'safe' | 'caution' | 'danger' = 'safe';
@@ -94,7 +99,19 @@ class PlacesService {
               }
             );
 
-            return {
+            // Get opening hours properly using getDetails
+            let isOpen: boolean | undefined = undefined;
+            if (place.place_id && place.opening_hours) {
+              try {
+                isOpen = await this.getPlaceOpeningStatus(place.place_id);
+              } catch (error) {
+                console.warn('Failed to get opening status for place:', place.name);
+                // Fallback to undefined instead of using deprecated open_now
+                isOpen = undefined;
+              }
+            }
+
+            places.push({
               id: place.place_id || `place_${index}`,
               name: place.name || 'Unknown Place',
               type: placeType,
@@ -105,14 +122,48 @@ class PlacesService {
               distance,
               address: place.vicinity || '',
               rating: place.rating,
-              isOpen: place.opening_hours?.open_now,
+              isOpen,
               safetyLevel
-            };
-          });
+            });
+          }
 
           resolve(places);
         } else {
           reject(new Error(`Places search failed: ${status}`));
+        }
+      });
+    });
+  }
+
+  // Get place opening status using the new getDetails method
+  private async getPlaceOpeningStatus(placeId: string): Promise<boolean | undefined> {
+    return new Promise((resolve) => {
+      if (!this.placesService) {
+        resolve(undefined);
+        return;
+      }
+
+      const request = {
+        placeId: placeId,
+        fields: ['opening_hours']
+      };
+
+      this.placesService.getDetails(request, (place, status) => {
+        if (status === window.google.maps.places.PlacesServiceStatus.OK && place) {
+          if (place.opening_hours) {
+            try {
+              // Use the new isOpen() method instead of deprecated open_now
+              const isOpen = place.opening_hours.isOpen();
+              resolve(isOpen);
+            } catch (error) {
+              console.warn('isOpen() method not available, falling back to undefined');
+              resolve(undefined);
+            }
+          } else {
+            resolve(undefined);
+          }
+        } else {
+          resolve(undefined);
         }
       });
     });
@@ -148,9 +199,12 @@ class PlacesService {
         type: type as any
       };
 
-      this.placesService.nearbySearch(request, (results, status) => {
+      this.placesService.nearbySearch(request, async (results, status) => {
         if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
-          const places: NearbyPlace[] = results.slice(0, 10).map((place, index) => {
+          const places: NearbyPlace[] = [];
+          
+          for (let index = 0; index < Math.min(results.length, 10); index++) {
+            const place = results[index];
             let placeType: NearbyPlace['type'] = 'tourist_spot';
             let safetyLevel: 'safe' | 'caution' | 'danger' = 'safe';
 
@@ -173,7 +227,18 @@ class PlacesService {
               }
             );
 
-            return {
+            // Get opening hours properly using getDetails
+            let isOpen: boolean | undefined = undefined;
+            if (place.place_id && place.opening_hours) {
+              try {
+                isOpen = await this.getPlaceOpeningStatus(place.place_id);
+              } catch (error) {
+                console.warn('Failed to get opening status for place:', place.name);
+                isOpen = undefined;
+              }
+            }
+
+            places.push({
               id: place.place_id || `${type}_${index}`,
               name: place.name || `Unknown ${type}`,
               type: placeType,
@@ -184,11 +249,11 @@ class PlacesService {
               distance,
               address: place.vicinity || '',
               rating: place.rating,
-              isOpen: place.opening_hours?.open_now,
+              isOpen,
               phone: place.formatted_phone_number,
               safetyLevel
-            };
-          });
+            });
+          }
 
           resolve(places);
         } else {
@@ -289,38 +354,26 @@ class PlacesService {
       {
         id: 'safe_zone_1',
         name: 'Tourist Safe Zone',
-        type: 'safe',
-        coordinates: [
-          { lat: location.lat + 0.005, lng: location.lng + 0.005 },
-          { lat: location.lat + 0.005, lng: location.lng - 0.005 },
-          { lat: location.lat - 0.005, lng: location.lng - 0.005 },
-          { lat: location.lat - 0.005, lng: location.lng + 0.005 }
-        ],
+        center: { lat: location.lat, lng: location.lng },
+        radius: 500,
+        level: 'safe',
         description: 'Well-patrolled tourist area with good lighting and emergency services'
       },
       {
         id: 'caution_zone_1',
         name: 'Market Area',
-        type: 'caution',
-        coordinates: [
-          { lat: location.lat + 0.008, lng: location.lng + 0.008 },
-          { lat: location.lat + 0.008, lng: location.lng + 0.003 },
-          { lat: location.lat + 0.003, lng: location.lng + 0.003 },
-          { lat: location.lat + 0.003, lng: location.lng + 0.008 }
-        ],
+        center: { lat: location.lat + 0.003, lng: location.lng + 0.003 },
+        radius: 300,
+        level: 'caution',
         description: 'Crowded area - be aware of pickpockets and keep valuables secure'
       },
       {
         id: 'danger_zone_1',
         name: 'Construction Zone',
-        type: 'danger',
-        coordinates: [
-          { lat: location.lat - 0.008, lng: location.lng + 0.008 },
-          { lat: location.lat - 0.008, lng: location.lng + 0.003 },
-          { lat: location.lat - 0.003, lng: location.lng + 0.003 },
-          { lat: location.lat - 0.003, lng: location.lng + 0.008 }
-        ],
-        description: 'Active construction zone - avoid during nighttime'
+        center: { lat: location.lat - 0.004, lng: location.lng - 0.002 },
+        radius: 200,
+        level: 'danger',
+        description: 'Active construction site - avoid this area for safety'
       }
     ];
 

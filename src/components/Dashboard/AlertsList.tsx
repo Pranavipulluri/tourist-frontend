@@ -77,9 +77,14 @@ export const AlertsList: React.FC<AlertsListProps> = ({ alerts = [], onAlertsUpd
                   <span className="alert-time">
                     {new Date(alert.createdAt).toLocaleString()}
                   </span>
-                  {(alert.latitude && alert.longitude) && (
+                  {/* Handle both direct latitude/longitude and nested location object */}
+                  {((alert.latitude != null && alert.longitude != null) || (alert.location?.latitude != null && alert.location?.longitude != null)) && (
                     <span className="alert-location">
-                      📍 {alert.latitude.toFixed(4)}, {alert.longitude.toFixed(4)}
+                      📍 {
+                        alert.location?.latitude != null
+                          ? `${Number(alert.location.latitude).toFixed(4)}, ${Number(alert.location.longitude).toFixed(4)}`
+                          : `${Number(alert.latitude).toFixed(4)}, ${Number(alert.longitude).toFixed(4)}`
+                      }
                     </span>
                   )}
                 </div>
