@@ -3,7 +3,7 @@
 
 export const GOOGLE_MAPS_CONFIG = {
   // Use environment variable for API key
-  apiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'AIzaSyDn5H4CtugS827eG6bCYwIhdY2pRQ5rMWA',
+  apiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
   
   // Map default settings
   defaultZoom: 15,
